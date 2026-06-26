@@ -1,0 +1,30 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+.env
+
+# SQLite 資料庫（太大，不放入 repo）
+*.db
+*.db-shm
+*.db-wal
+
+# 日誌與除錯暫存
+*.log
+goodinfo_debug.html
+norway_debug.html
+tdcc_response_debug.html
+norway_rows.json
+tdcc.csv
+tpex_mainboard_daily_close_quotes.json
+goodinfo_rows.json
+
+# 備份與草稿
+*_複製*
+app_fial.py
+app\ -\ 複製.py
+
+# IDE
+.vscode/
+.idea/

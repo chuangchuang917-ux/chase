@@ -1,0 +1,72 @@
+name: Chase Daily Supabase Sync
+
+on:
+  # 每日台灣時間 02:00（UTC 18:00 前一天）執行
+  schedule:
+    - cron: '0 18 * * *'
+  # 允許手動觸發（測試用）
+  workflow_dispatch:
+
+jobs:
+  daily-update:
+    name: Fetch & Sync to Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. 取出程式碼 ─────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. 設定 Python ─────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+
+      # ── 3. 安裝依賴 ────────────────────────────────────
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # ── 4. 下載最新 SQLite（從 Release 存取）─────────
+      #  由於 SQLite 不能存在 GitHub repo（太大），
+      #  我們從上一次 Release 的 artifact 下載，
+      #  或如果沒有就建立空庫讓 crawler 自動初始化。
+      - name: Restore SQLite database from cache
+        id: cache-db
+        uses: actions/cache@v4
+        with:
+          path: taiwan_stock.db
+          # key 用日期讓每天都能更新
+          key: taiwan-stock-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            taiwan-stock-db-${{ runner.os }}-
+
+      # ── 5. 執行每日更新腳本 ────────────────────────────
+      - name: Run daily update
+        env:
+          FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
+          SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
+        run: python daily_update.py
+
+      # ── 6. 儲存更新後的 SQLite（供下次使用）──────────
+      - name: Save updated SQLite to cache
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: taiwan_stock.db
+          key: taiwan-stock-db-${{ runner.os }}-${{ github.run_id }}
+
+      # ── 7. 輸出摘要 ────────────────────────────────────
+      - name: Print summary
+        if: always()
+        run: |
+          echo "## ✅ Chase Daily Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| 項目 | 說明 |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 執行時間 | $(TZ='Asia/Taipei' date '+%Y-%m-%d %H:%M:%S') (台灣時間) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cron 排程 | 0 18 * * * (每日 UTC 18:00 = 台灣 02:00) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Supabase | ${{ secrets.SUPABASE_URL }} |" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,20 @@
+{
+    "order": [
+        "stock_id",
+        "stock_name",
+        "volume",
+        "price_change_60d",
+        "ratio_foreign_trust_20d",
+        "ratio_foreign_trust_20d_capital",
+        "ratio_foreign_trust_60d",
+        "ratio_foreign_trust_60d_capital",
+        "holder_over_1000",
+        "holder_over_400",
+        "close",
+        "short_sale_change_20d",
+        "margin_purchase_change_20d"
+    ],
+    "hidden": [
+        "margin_purchase_change_20d"
+    ]
+}
