@@ -80,6 +80,26 @@ if USE_SUPABASE:
         "Content-Type": "application/json"
     }
 
+def _supabase_fetch_all(url, headers, timeout=15):
+    """分頁抓取 Supabase 所有資料（突破預設 1000 筆限制）"""
+    records = []
+    limit = 1000
+    offset = 0
+    while True:
+        req_headers = headers.copy()
+        req_headers["Range"] = f"{offset}-{offset + limit - 1}"
+        r = requests.get(url, headers=req_headers, timeout=timeout)
+        if r.status_code not in (200, 206):
+            break
+        data = r.json()
+        if not data:
+            break
+        records.extend(data)
+        if len(data) < limit:
+            break
+        offset += limit
+    return records
+
 # ==========================================
 # 1. 取得資料庫最新日期作為預設日期與股票名單
 # ==========================================
@@ -100,11 +120,11 @@ def get_db_dates_info():
             if not latest_date_str:
                 return None, pd.DataFrame(columns=["stock_id", "stock_name"])
                 
-            # 2. 取得該最新交易日之全量股票清單，避免 select distinct 全表
+            # 2. 取得該最新交易日之全量股票清單（分頁突破 1000 筆限制）
             url_stocks = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=stock_id,stock_name&date=eq.{latest_date_str}&order=stock_id.asc"
-            r_stocks = requests.get(url_stocks, headers=SUPABASE_HEADERS, timeout=10)
-            if r_stocks.status_code == 200:
-                df_stocks = pd.DataFrame(r_stocks.json())
+            all_stocks = _supabase_fetch_all(url_stocks, SUPABASE_HEADERS)
+            if all_stocks:
+                df_stocks = pd.DataFrame(all_stocks)
                 if not df_stocks.empty:
                     df_stocks = df_stocks[["stock_id", "stock_name"]]
                 return latest_date_str, df_stocks
@@ -750,8 +770,8 @@ if not df_strategy.empty:
         if USE_SUPABASE:
             try:
                 url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=stock_id&date=eq.{selected_date_str}"
-                r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
-                total_stocks = len(r.json()) if r.status_code == 200 else 0
+                all_ids = _supabase_fetch_all(url, SUPABASE_HEADERS)
+                total_stocks = len(all_ids)
             except Exception:
                 total_stocks = 0
         else:
