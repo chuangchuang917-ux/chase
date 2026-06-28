@@ -940,9 +940,20 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                             df_daily_hist["holder_over_1000"] = pd.to_numeric(df_daily_hist["holder_over_1000"], errors='coerce').fillna(0.0)
                             df_daily_hist["holder_over_400"] = pd.to_numeric(df_daily_hist["holder_over_400"], errors='coerce').fillna(0.0)
                             
-                            # 利用 W-FRI resample 將日資料降採樣為週資料
+                            # 將日資料過濾出實際週集保發布日（主要是週五，若週五連假則為週四）
                             df_daily_hist["date_dt"] = pd.to_datetime(df_daily_hist["date"])
-                            df_weekly_hist = df_daily_hist.set_index("date_dt").resample("W-FRI").last().dropna().reset_index()
+                            df_weekly_hist = df_daily_hist[df_daily_hist["date_dt"].dt.weekday == 4].copy()
+                            
+                            # 防禦性檢查：如果查詢的最末天是週四 (weekday == 3)，且該週五尚未出現在資料中（代表週五放假提前至週四發布）
+                            if not df_daily_hist.empty:
+                                latest_row = df_daily_hist.iloc[0]
+                                latest_date = latest_row["date_dt"]
+                                if latest_date.weekday() == 3:  # 週四
+                                    latest_week = latest_date.isocalendar()
+                                    existing_weeks = df_weekly_hist["date_dt"].dt.isocalendar().apply(lambda x: (x.year, x.week)).tolist()
+                                    if (latest_week.year, latest_week.week) not in existing_weeks:
+                                        df_weekly_hist = pd.concat([pd.DataFrame([latest_row]), df_weekly_hist], ignore_index=True)
+                            
                             df_weekly_hist["date"] = df_weekly_hist["date_dt"].dt.strftime("%Y-%m-%d")
                             df_weekly_hist = df_weekly_hist.sort_values(by="date", ascending=False)
                             df_weekly_hist = df_weekly_hist[["date", "holder_over_1000", "holder_over_400"]]
