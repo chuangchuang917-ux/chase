@@ -958,14 +958,16 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                             consec_1000 += 1
                         else:
                             break
-                    consec_1000_delta = f"+{consec_1000} 週 (連續增加)"
+                    pct_change_1000 = v_1000[0] - v_1000[consec_1000]
+                    consec_1000_delta = f"+{consec_1000} 週 (+{pct_change_1000:.2f}%)"
                 elif diff_1000 < -0.00001:
                     for i in range(len(v_1000) - 1):
                         if v_1000[i] < v_1000[i+1]:
                             consec_1000 += 1
                         else:
                             break
-                    consec_1000_delta = f"-{consec_1000} 週 (連續減少)"
+                    pct_change_1000 = v_1000[0] - v_1000[consec_1000]
+                    consec_1000_delta = f"-{consec_1000} 週 ({pct_change_1000:.2f}%)"
                 else:
                     consec_1000_delta = "持平"
                     
@@ -978,14 +980,16 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                             consec_400 += 1
                         else:
                             break
-                    consec_400_delta = f"+{consec_400} 週 (連續增加)"
+                    pct_change_400 = v_400[0] - v_400[consec_400]
+                    consec_400_delta = f"+{consec_400} 週 (+{pct_change_400:.2f}%)"
                 elif diff_400 < -0.00001:
                     for i in range(len(v_400) - 1):
                         if v_400[i] < v_400[i+1]:
                             consec_400 += 1
                         else:
                             break
-                    consec_400_delta = f"-{consec_400} 週 (連續減少)"
+                    pct_change_400 = v_400[0] - v_400[consec_400]
+                    consec_400_delta = f"-{consec_400} 週 ({pct_change_400:.2f}%)"
                 else:
                     consec_400_delta = "持平"
             else:
