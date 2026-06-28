@@ -4,6 +4,7 @@ import sqlite3
 from datetime import datetime
 import pandas as pd
 import requests
+import json
 from FinMind.data import DataLoader
 
 # ==========================================
@@ -331,16 +332,37 @@ def fetch_daily_data_from_open_apis(active_stock_ids):
         url_date = target_date.replace("-", "")
         r = requests.get(f"https://www.twse.com.tw/rwd/zh/fund/T86?date={url_date}&selectType=ALL&response=json", headers=headers, verify=False, timeout=20)
         if r.status_code == 200:
-            json_data = r.json()
+            json_data = json.loads(r.content.decode("utf-8"))
             if json_data.get("stat") == "OK" and "data" in json_data:
+                # 動態從 fields 解析欄位索引
+                fields = json_data.get("fields", [])
+                foreign_idx = -1
+                trust_idx = -1
+                for idx, f_name in enumerate(fields):
+                    if "外" in f_name and "買賣超" in f_name:
+                        if "不含外資自營商" in f_name:
+                            foreign_idx = idx
+                        elif foreign_idx == -1:
+                            foreign_idx = idx
+                    elif "投信" in f_name and "買賣超" in f_name:
+                        trust_idx = idx
+
+                if foreign_idx == -1:
+                    foreign_idx = 4
+                if trust_idx == -1:
+                    trust_idx = 10
+
                 rows = []
                 for item in json_data["data"]:
                     code = item[0].strip()
                     if len(code) == 4:
                         try:
-                            foreign_net = float(item[4].replace(",", "")) / 1000.0
-                            trust_net = float(item[10].replace(",", "")) / 1000.0
-                        except ValueError:
+                            # 防禦欄位長度不足的例外情況
+                            f_val = item[foreign_idx] if foreign_idx < len(item) else "0"
+                            t_val = item[trust_idx] if trust_idx < len(item) else "0"
+                            foreign_net = float(str(f_val).replace(",", "")) / 1000.0
+                            trust_net = float(str(t_val).replace(",", "")) / 1000.0
+                        except (ValueError, IndexError):
                             foreign_net = 0.0
                             trust_net = 0.0
                         rows.append({
