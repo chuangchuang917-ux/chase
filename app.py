@@ -224,26 +224,44 @@ def handle_search():
         if search_val:
             if USE_SUPABASE:
                 try:
+                    # 先嘗試以代號查詢
                     url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=stock_id,stock_name&stock_id=eq.{search_val}&limit=1"
                     r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
-                    if r.status_code == 200 and r.json():
-                        res = r.json()[0]
+                    results = r.json() if r.status_code == 200 else []
+                    
+                    # 若代號查無，改以名稱模糊查詢
+                    if not results:
+                        url_name = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=stock_id,stock_name&stock_name=like.*{search_val}*&order=stock_id.asc&limit=1"
+                        r_name = requests.get(url_name, headers=SUPABASE_HEADERS, timeout=10)
+                        results = r_name.json() if r_name.status_code == 200 else []
+                    
+                    if results:
+                        res = results[0]
                         matched_str = f"{res['stock_id']} - {res['stock_name']}"
                         st.session_state.selected_stock_str = matched_str
                         st.session_state.search_success = f"🔎 搜尋成功：已加載 {matched_str}，並已重設日期至最新交易日！"
                         if "search_warning" in st.session_state:
                             del st.session_state.search_warning
                     else:
-                        st.session_state.search_warning = f"⚠️ 找不到代號為 '{search_val}' 的股票，將維持原選定股票。"
+                        st.session_state.search_warning = f"⚠️ 找不到代號或名稱含 '{search_val}' 的股票，將維持原選定股票。"
                 except Exception as e:
                     st.session_state.search_warning = f"⚠️ Supabase 查詢出錯: {e}"
             else:
                 conn = sqlite3.connect(DB_PATH)
                 try:
+                    # 先嘗試以代號查詢
                     res = conn.execute(
                         "SELECT DISTINCT stock_id, stock_name FROM daily_chips WHERE stock_id = ? LIMIT 1",
                         (search_val,)
                     ).fetchone()
+                    
+                    # 若代號查無，改以名稱模糊查詢
+                    if not res:
+                        res = conn.execute(
+                            "SELECT DISTINCT stock_id, stock_name FROM daily_chips WHERE stock_name LIKE ? LIMIT 1",
+                            (f"%{search_val}%",)
+                        ).fetchone()
+                    
                     if res:
                         matched_str = f"{res[0]} - {res[1]}"
                         st.session_state.selected_stock_str = matched_str
@@ -252,7 +270,7 @@ def handle_search():
                         if "search_warning" in st.session_state:
                             del st.session_state.search_warning
                     else:
-                        st.session_state.search_warning = f"⚠️ 找不到代號為 '{search_val}' 的股票，將維持原選定股票。"
+                        st.session_state.search_warning = f"⚠️ 找不到代號或名稱含 '{search_val}' 的股票，將維持原選定股票。"
                 finally:
                     conn.close()
 
@@ -643,8 +661,8 @@ else:
     default_stock = "請先執行爬蟲匯入資料"
 
 st.sidebar.text_input(
-    "輸入個股代號 (例如: 2317)", 
-    placeholder="輸入 4 碼代號...",
+    "輸入個股代號或名稱 (例如: 2317 或 鴻海)", 
+    placeholder="輸入代號或名稱...",
     key="diagnose_stock_search_field",
     on_change=handle_search
 )
