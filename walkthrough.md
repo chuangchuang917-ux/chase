@@ -620,4 +620,21 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 * **當前狀態**：
   證交所全市場上市股票（1,046 檔）資料驗證全部過關，無任何資料遺漏或精度偏差。
 
+---
+
+## 28. 歷史信用交易數據補件與驗證報告
+
+* **問題描述**：
+  在進行 120 天隨機 100 檔股票的歷史數據比對時，發現融資餘額一致率僅有 **10.81%**，融券一致率僅有 **53.85%**。進一步排查發現，這是因為 `margin_purchase_balance` 和 `short_sale_balance` 欄位是在專案後期才新增至資料庫，而回補腳本 `backfill_finmind.py` 使用了 `INSERT OR IGNORE` 邏輯，跳過了已存在日期列，造成全庫約 91% (24.6 萬筆) 的歷史數據融資券數值被鎖死在預設的 `0.0`。
+  
+* **解決手段**：
+  1. 新增專用的非同步金鑰切換補件更新腳本 [update_historical_margin.py](file:///c:/Users/alber/Desktop/antigravity/chase/update_historical_margin.py)。
+  2. 採用 SQL `UPDATE` 語句針對 `margin_purchase_balance = 0.0` 且 `volume > 0.0` 的歷史紀錄進行精準補件更新。
+  3. 腳本內部實作了三組免費 API Token（Primary, Fallback, Third）的自動輪替 (Token Rotation) 與限速休眠 (Auto-sleep) 機制。
+  
+* **執行狀況**：
+  * 已成功啟動背景更新任務，每檔股票預留 2 秒安全間隔，全市場 1,931 檔預計花費約 1 小時 15 分鐘全自動補齊。
+  * 經初期觀測，順利撈取 FinMind 數據並以 SQLite `UPDATE` 寫入（如個股 `1781` 成功更新 135 筆歷史紀錄）。
+
+
 
