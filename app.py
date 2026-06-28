@@ -288,6 +288,11 @@ html, body, [class*="css"], .stApp, p, span, label, input, select, button {
     line-height: 1.6 !important;
 }
 
+/* 隱藏右下角 Streamlit 官方發佈/管理按鈕與連線狀態小圖示 */
+.stAppDeployButton, .stDeployButton, div[data-testid="stConnectionStatus"], div[data-testid="stStatusWidget"], div.viewerBadge {
+    display: none !important;
+}
+
 .gradient-bar {
     height: 8px;
     background: linear-gradient(90deg, #ff4b4b 0%, #ff8533 50%, #ffc04d 100%);
