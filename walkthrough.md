@@ -636,8 +636,26 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   * **異常處理與優化**：執行初期曾遭遇 `requests.exceptions.ConnectTimeout`（在查詢第 254 檔股票時因登入請求逾時造成中斷）。
     * *修復*：我隨即將 `get_api_client()` 的 API 登入邏輯獨立移出至 `main()` 啟動時**一次性初始化 3 組客戶端**，後續個股更新時**直接複用已登入之客戶端**（節省一半 API 呼叫，且大幅提高執行速度與穩定度）。
     * *修復*：將客戶端實例的獲取一同納入 `try-except` 捕獲範圍，確保偶發性網路斷線或 API 抖動可被自動重試。
-  * **目前進度**：已重啟優化後的背景更新任務（Task ID: `task-351`），每檔股票預留 2 秒安全間隔，全市場 1,931 檔預計花費約 1 小時內自動補齊。
-  * **初期觀測**：金鑰輪替運作非常穩定，成功撈取 FinMind 數據並以 SQLite `UPDATE` 寫入（如個股 `1781` 成功更新 135 筆歷史紀錄）。
+  * **第一輪執行結果**：
+    * 第一輪已於 `18:25` 成功執行完畢，共處理 1,931 檔股票，其中 **1,710 檔成功補件**，累計更新 **222,911 筆** SQLite 歷史信用交易紀錄！這使資料表中的空白資料大幅降低了 85% 以上。
+  * **第二輪收尾執行中**：
+    * 針對因頻繁限速而被跳過的 383 檔殘餘股票，我已於背景啟動第二輪精準收尾補件（Task ID: `task-401`）。
+    * 目前背景任務正在正常執行中（已處理至 214/383），因為臨近整點，金鑰額度較吃緊，程式會自動觸發限速休眠重試，進度在緩慢前進中，請耐心等待其自動跑完。
+    
+* **接手 Agent 任務交接指引 (Handoff Tasks)**：
+  1. **確認收尾任務完成**：請檢查 `task-401` 是否已完成（或使用 `python -c "content = open('C:/Users/alber/.gemini/antigravity-ide/brain/6a8e8f6e-648d-4380-a82a-6c9e2ef25ec2/.system_generated/tasks/task-401.log', encoding='utf-8').read(); print('補件更新流程完成' in content)"` 核對日誌末尾）。
+  2. **執行數據抽樣複驗**：
+     * 執行指令：`python compare_100_stocks_120d.py`（此驗證腳本放置於 `C:\Users\alber\.gemini\antigravity-ide\brain\6a8e8f6e-648d-4380-a82a-6c9e2ef25ec2\scratch/` 下）。
+     * 預期結果：排除無資料之認購售權證外，正常股票的一致率應接近 **100.00%**。
+  3. **推送資料庫至遠端**：
+     * 當複驗成功後，執行 Git 推送將最新正確的本機 SQLite 資料庫 `taiwan_stock.db` 上傳至 GitHub：
+       ```bash
+       git add taiwan_stock.db
+       git commit -m "data: finalize full credit transaction historical backfill"
+       git push
+       ```
+  4. **對接 Supabase**：協助使用者將前端 `app.py` 的 SQLite 查詢端點改為讀取雲端 Supabase 資料庫，完成最終整合。
+
 
 
 
