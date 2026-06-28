@@ -102,7 +102,7 @@ def handle_search():
                     matched_str = f"{res[0]} - {res[1]}"
                     st.session_state.selected_stock_str = matched_str
                     # 預設搜尋重設日期為最新交易日
-                    st.session_state.analysis_date_widget = default_date
+        
                     st.session_state.search_success = f"🔎 搜尋成功：已加載 {matched_str}，並已重設日期至最新交易日！"
                     if "search_warning" in st.session_state:
                         del st.session_state.search_warning
@@ -117,54 +117,58 @@ def handle_search():
 common_css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-html, body, [class*="css"] {
-    font-family: 'Outfit', 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+
+/* 全域字體與行高巨大化 */
+html, body, [class*="css"], .stApp, p, span, label, input, select, button {
+    font-family: 'Outfit', 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
+    font-size: 19px !important;
+    line-height: 1.6 !important;
 }
 
 .gradient-bar {
-    height: 6px;
+    height: 8px;
     background: linear-gradient(90deg, #ff4b4b 0%, #ff8533 50%, #ffc04d 100%);
-    border-radius: 3px;
+    border-radius: 4px;
     margin-bottom: 25px;
 }
 
-/* 大區塊主標題樣式 */
+/* 大區塊主標題樣式巨大化 */
 .main-section-title {
-    font-size: 1.4rem;
-    font-weight: 700;
-    padding-bottom: 8px;
-    margin-top: 30px;
-    margin-bottom: 20px;
+    font-size: 2.2rem !important;
+    font-weight: 800 !important;
+    padding-bottom: 12px;
+    margin-top: 40px;
+    margin-bottom: 25px;
 }
 
-/* 子區塊標題樣式 */
+/* 子區塊標題樣式巨大化 */
 .section-title {
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
     color: #ff8533;
-    border-left: 4px solid #ff8533;
-    padding-left: 10px;
-    margin-top: 15px;
-    margin-bottom: 15px;
+    border-left: 6px solid #ff8533;
+    padding-left: 15px;
+    margin-top: 30px;
+    margin-bottom: 20px;
 }
 
 /* 原生 st.container(border=True) 覆寫 */
 div[data-testid="stVerticalBlockBorderInside"] {
     background: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-    border-radius: 12px !important;
+    border: 2px solid var(--card-border) !important;
+    border-radius: 16px !important;
     box-shadow: var(--card-shadow) !important;
-    padding: 20px !important;
+    padding: 25px !important;
 }
 
 /* 股票診斷看板自訂卡片 */
 .premium-info-card {
     background: var(--card-bg) !important;
-    border: 1px solid var(--card-border) !important;
-    padding: 20px;
-    border-radius: 12px;
+    border: 2px solid var(--card-border) !important;
+    padding: 25px;
+    border-radius: 16px;
     box-shadow: var(--card-shadow) !important;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
 }
 
 /* 🎯 右上角主題按鈕 CSS fixed 定位 */
@@ -177,6 +181,11 @@ div[data-testid="stVerticalBlockBorderInside"] {
     margin: 0 !important;
     padding: 0 !important;
     background: transparent !important;
+}
+.st-key-btn_reset_today button {
+    font-size: 0.75rem !important;
+    padding: 0 6px !important;
+    line-height: 1.2 !important;
 }
 
 .st-key-theme_toggle_container div[data-testid="stHorizontalBlock"] {
@@ -194,16 +203,17 @@ div[data-testid="stVerticalBlockBorderInside"] {
 }
 
 .st-key-theme_toggle_container button {
-    height: 24px !important;
-    min-height: 24px !important;
-    line-height: 24px !important;
-    padding: 0 8px !important;
-    font-size: 0.72rem !important;
-    border-radius: 6px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    line-height: 30px !important;
+    padding: 0 12px !important;
+    font-size: 0.9rem !important;
+    font-weight: bold !important;
+    border-radius: 8px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    border: 1px solid var(--card-border) !important;
+    border: 2px solid var(--card-border) !important;
     background-color: var(--card-bg) !important;
     color: var(--main-title-color) !important;
     margin: 0 !important;
@@ -217,96 +227,102 @@ if st.session_state.theme == "light":
 <style>
 :root {
     --card-bg: #ffffff;
-    --card-border: #e2e8f0;
-    --card-shadow: 0 4px 12px rgba(148, 163, 184, 0.08);
-    --main-title-color: #0f172a;
+    --card-border: #cbd5e1; /* 加深邊框對比 */
+    --card-shadow: 0 6px 16px rgba(148, 163, 184, 0.12);
+    --main-title-color: #000000; /* 純黑 */
 }
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
-    background-color: #f8fafc !important;
-    color: #0f172a !important;
+    background-color: #ffffff !important; /* 純白背景 */
+    color: #000000 !important; /* 純黑文字 */
 }
 section[data-testid="stSidebar"] {
-    background-color: #ffffff !important;
-    border-right: 1px solid #e2e8f0 !important;
+    background-color: #f8fafc !important;
+    border-right: 2px solid #cbd5e1 !important;
 }
 .main-section-title {
-    color: #0f172a !important;
-    border-bottom: 2px solid #e2e8f0 !important;
+    color: #000000 !important;
+    border-bottom: 3px solid #cbd5e1 !important;
 }
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
 section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
-    color: #0f172a !important;
+    color: #000000 !important;
 }
+/* 核心指標卡片數值與標籤巨大化 */
 div[data-testid="stVerticalBlockBorderInside"] [data-testid="stMetricValue"],
 .premium-info-card [data-testid="stMetricValue"] {
-    color: #0f172a !important;
+    color: #ffffff !important;
+    font-size: 2.8rem !important;
+    font-weight: 900 !important;
 }
 div[data-testid="stVerticalBlockBorderInside"] [data-testid="stMetricLabel"],
 .premium-info-card [data-testid="stMetricLabel"] {
-    color: #64748b !important;
-    font-size: 1.05rem !important;
-    font-weight: 600 !important;
+    color: #d1d5db !important; /* light gray */
+    font-size: 1.4rem !important; /* slightly larger */
+    font-weight: 800 !important;
+    margin-top: 4px !important;
 }
 .badge-lock-premium {
-    background-color: rgba(26, 115, 232, 0.08) !important;
-    color: #1a73e8 !important;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(26, 115, 232, 0.3) !important;
-    font-size: 0.85em;
-    font-weight: 600;
+    background-color: #eff6ff !important;
+    color: #1d4ed8 !important;
+    padding: 6px 16px;
+    border-radius: 30px;
+    border: 2px solid #bfdbfe !important;
+    font-size: 1.0em;
+    font-weight: 800;
     display: inline-block;
 }
 .badge-accelerate-premium {
-    background-color: rgba(219, 68, 85, 0.08) !important;
-    color: #d93025 !important;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(219, 68, 85, 0.3) !important;
-    font-size: 0.85em;
-    font-weight: 600;
+    background-color: #fef2f2 !important;
+    color: #b91c1c !important;
+    padding: 6px 16px;
+    border-radius: 30px;
+    border: 2px solid #fecaca !important;
+    font-size: 1.0em;
+    font-weight: 800;
     display: inline-block;
 }
 .badge-normal-premium {
-    background-color: rgba(100, 116, 139, 0.08) !important;
-    color: #64748b !important;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(100, 116, 139, 0.2) !important;
-    font-size: 0.85em;
-    font-weight: 500;
+    background-color: #f1f5f9 !important;
+    color: #475569 !important;
+    padding: 6px 16px;
+    border-radius: 30px;
+    border: 2px solid #e2e8f0 !important;
+    font-size: 1.0em;
+    font-weight: 700;
     display: inline-block;
 }
 .guide-box {
-    background-color: #f1f5f9 !important;
-    border-left: 3px solid #ff8533 !important;
-    color: #334155 !important;
-    padding: 10px 15px;
-    border-radius: 4px;
-    font-size: 0.9em;
+    background-color: #f8fafc !important;
+    border-left: 5px solid #ea580c !important;
+    color: #1e293b !important;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: bold;
+    border: 1px solid #e2e8f0;
 }
 .glow-alert-card {
     background: #fef2f2 !important;
-    border: 1px solid #fca5a5 !important;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.05) !important;
-    margin-bottom: 20px;
+    border: 2px solid #fca5a5 !important;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(239, 68, 68, 0.08) !important;
+    margin-bottom: 25px;
     color: #991b1b !important;
 }
-.glow-alert-card h4 { color: #991b1b !important; margin: 0 0 10px 0; font-weight: 700; font-size: 1.15rem; }
-.glow-alert-card p { color: #b91c1c !important; margin: 0; font-size: 0.95rem; line-height: 1.5; }
+.glow-alert-card h4 { color: #991b1b !important; margin: 0 0 12px 0; font-weight: 800; font-size: 1.4rem; }
+.glow-alert-card p { color: #b91c1c !important; margin: 0; font-size: 1.1rem; line-height: 1.6; }
 .glow-success-card {
     background: #f0fdf4 !important;
-    border: 1px solid #bbf7d0 !important;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.05) !important;
-    margin-bottom: 20px;
+    border: 2px solid #bbf7d0 !important;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 6px 16px rgba(34, 197, 94, 0.08) !important;
+    margin-bottom: 25px;
     color: #166534 !important;
 }
-.glow-success-card h4 { color: #166534 !important; margin: 0 0 10px 0; font-weight: 700; font-size: 1.15rem; }
-.glow-success-card p { color: #15803d !important; margin: 0; font-size: 0.95rem; line-height: 1.5; }
+.glow-success-card h4 { color: #166534 !important; margin: 0 0 12px 0; font-weight: 800; font-size: 1.4rem; }
+.glow-success-card p { color: #15803d !important; margin: 0; font-size: 1.1rem; line-height: 1.6; }
 </style>
 """
 else:
@@ -314,98 +330,104 @@ else:
 <style>
 :root {
     --card-bg: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
-    --card-border: #30363d;
-    --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    --card-border: #444c56;
+    --card-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
     --main-title-color: #ffffff;
 }
 .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
     background-color: #0d1117 !important;
-    color: #c9d1d9 !important;
+    color: #f0f6fc !important; /* 更亮的暗色文字 */
 }
 section[data-testid="stSidebar"] {
     background-color: #0d1117 !important;
-    border-right: 1px solid #21262d !important;
+    border-right: 2px solid #30363d !important;
 }
 .main-section-title {
     color: #ffffff !important;
-    border-bottom: 2px solid #30363d !important;
+    border-bottom: 3px solid #30363d !important;
 }
 section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
 section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
-    color: #c9d1d9 !important;
+    color: #f0f6fc !important;
 }
+/* 核心指標卡片數值與標籤巨大化 */
 div[data-testid="stVerticalBlockBorderInside"] [data-testid="stMetricValue"],
 .premium-info-card [data-testid="stMetricValue"] {
     color: #ffffff !important;
+    font-size: 2.8rem !important;
+    font-weight: 900 !important;
 }
 div[data-testid="stVerticalBlockBorderInside"] [data-testid="stMetricLabel"],
 .premium-info-card [data-testid="stMetricLabel"] {
-    color: #8b949e !important;
-    font-size: 1.05rem !important;
-    font-weight: 600 !important;
+    color: #d1d5db !important; /* light gray */
+    font-size: 1.4rem !important; /* slightly larger */
+    font-weight: 800 !important;
+    margin-top: 4px !important;
 }
 .badge-lock-premium {
-    background-color: rgba(26, 115, 232, 0.15) !important;
+    background-color: rgba(26, 115, 232, 0.25) !important;
     color: #8ab4f8 !important;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(26, 115, 232, 0.4) !important;
-    font-size: 0.85em;
-    font-weight: 600;
-    box-shadow: 0 0 10px rgba(26, 115, 232, 0.2) !important;
+    padding: 6px 16px;
+    border-radius: 30px;
+    border: 2px solid rgba(26, 115, 232, 0.5) !important;
+    font-size: 1.0em;
+    font-weight: 800;
+    box-shadow: 0 0 12px rgba(26, 115, 232, 0.3) !important;
     display: inline-block;
 }
 .badge-accelerate-premium {
-    background-color: rgba(219, 68, 85, 0.15) !important;
+    background-color: rgba(219, 68, 85, 0.25) !important;
     color: #f28b82 !important;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(219, 68, 85, 0.4) !important;
-    font-size: 0.85em;
-    font-weight: 600;
-    box-shadow: 0 0 10px rgba(219, 68, 85, 0.2) !important;
+    padding: 6px 16px;
+    border-radius: 30px;
+    border: 2px solid rgba(219, 68, 85, 0.5) !important;
+    font-size: 1.0em;
+    font-weight: 800;
+    box-shadow: 0 0 12px rgba(219, 68, 85, 0.3) !important;
     display: inline-block;
 }
 .badge-normal-premium {
-    background-color: rgba(139, 148, 158, 0.15) !important;
-    color: #8b949e !important;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid rgba(139, 148, 158, 0.3) !important;
-    font-size: 0.85em;
-    font-weight: 500;
+    background-color: rgba(139, 148, 158, 0.2) !important;
+    color: #c9d1d9 !important;
+    padding: 6px 16px;
+    border-radius: 30px;
+    border: 2px solid rgba(139, 148, 158, 0.4) !important;
+    font-size: 1.0em;
+    font-weight: 700;
     display: inline-block;
 }
 .guide-box {
-    background-color: rgba(255, 133, 51, 0.05) !important;
-    border-left: 3px solid #ff8533 !important;
-    color: #c9d1d9 !important;
-    padding: 10px 15px;
-    border-radius: 4px;
-    font-size: 0.9em;
+    background-color: rgba(255, 133, 51, 0.08) !important;
+    border-left: 5px solid #ff8533 !important;
+    color: #f0f6fc !important;
+    padding: 15px 20px;
+    border-radius: 8px;
+    font-size: 1.05rem;
+    font-weight: bold;
+    border: 1px solid #30363d;
 }
 .glow-alert-card {
     background: linear-gradient(135deg, #2b1517 0%, #1c0e10 100%) !important;
-    border: 1px solid #e05c66 !important;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 0 20px rgba(224, 92, 102, 0.3) !important;
-    margin-bottom: 20px;
+    border: 2px solid #e05c66 !important;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 0 25px rgba(224, 92, 102, 0.4) !important;
+    margin-bottom: 25px;
     color: #f28b82 !important;
 }
-.glow-alert-card h4 { color: #ff6b6b !important; margin: 0 0 10px 0; font-weight: 700; font-size: 1.15rem; }
-.glow-alert-card p { color: #f28b82 !important; margin: 0; font-size: 0.95rem; line-height: 1.5; }
+.glow-alert-card h4 { color: #ff6b6b !important; margin: 0 0 12px 0; font-weight: 800; font-size: 1.4rem; }
+.glow-alert-card p { color: #f28b82 !important; margin: 0; font-size: 1.1rem; line-height: 1.6; }
 .glow-success-card {
     background: linear-gradient(135deg, #0e2016 0%, #07120c 100%) !important;
-    border: 1px solid #34a853 !important;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 0 20px rgba(52, 168, 83, 0.2) !important;
-    margin-bottom: 20px;
+    border: 2px solid #34a853 !important;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 0 25px rgba(52, 168, 83, 0.3) !important;
+    margin-bottom: 25px;
     color: #a5d6a7 !important;
 }
-.glow-success-card h4 { color: #81c784 !important; margin: 0 0 10px 0; font-weight: 700; font-size: 1.15rem; }
-.glow-success-card p { color: #a5d6a7 !important; margin: 0; font-size: 0.95rem; line-height: 1.5; }
+.glow-success-card h4 { color: #81c784 !important; margin: 0 0 12px 0; font-weight: 800; font-size: 1.4rem; }
+.glow-success-card p { color: #a5d6a7 !important; margin: 0; font-size: 1.1rem; line-height: 1.6; }
 </style>
 """
 
@@ -428,7 +450,7 @@ with st.container(key="theme_toggle_container"):
 # ==========================================
 # 4. 標題與核心思維呈現
 # ==========================================
-st.title("🔥 自動化高階籌碼鎖碼雷達")
+st.markdown("<h1 style=\"font-size:3rem; font-weight:800; margin-top:20px; margin-bottom:20px;\">🔥 自動化高階籌碼鎖碼雷達</h1>", unsafe_allow_html=True)
 st.info(
     "💡 **核心思維**：本系統採用『雙軌制架構』，同時整合**每日主力前15大分點買賣超**與**每週五更新的千張大戶股權分散數據**。協助量化交易老手精準過濾出主力長線鎖碼、近期買盤加速，且股價未有過度拉抬跡象（中低位階）的優質台股。"
 )
@@ -458,6 +480,8 @@ selected_date = st.sidebar.date_input(
 if selected_date is None:
     selected_date = default_date
 selected_date_str = selected_date.strftime("%Y-%m-%d")
+# Reduce top margin before the diagnosis subheader for tighter layout
+st.markdown("<style>.stSidebar h2 {margin-top: 4px !important;}</style>", unsafe_allow_html=True)
 
 # 🔍 個股診斷查詢
 st.sidebar.markdown("---")
@@ -491,45 +515,78 @@ selected_stock_str = st.sidebar.selectbox(
 if selected_stock_str != "請先執行爬蟲匯入資料":
     st.session_state.selected_stock_str = selected_stock_str
 
-# 最低成交金額滑桿 (Form 包覆)
+# 最低成交金額與策略條件選擇 (樂齡大字體易點擊設計)
 with st.sidebar.form(key="filter_form"):
-    min_trade_val_million = st.slider(
-        "最低成交金額門檻 (萬元)",
-        min_value=0,
-        max_value=10000,
-        value=0,
-        step=100,
-        help="過濾掉低於此成交金額的股票以排除冷門流動性風險 (例如 5000 = 5000 萬台幣)"
+    st.markdown('<p style="font-weight: 800; margin-bottom: 2px;">💰 股票成交熱度門檻</p>', unsafe_allow_html=True)
+
+    
+    trade_val_option = st.radio(
+        "最低成交金額",
+        options=["不限制", "500 萬元", "1,000 萬元", "2,000 萬元", "5,000 萬元"],
+        index=0,
+        label_visibility="collapsed"
     )
+    trade_val_mapping = {
+        "不限制": 0,
+        "500 萬元": 500,
+        "1,000 萬元": 1000,
+        "2,000 萬元": 2000,
+        "5,000 萬元": 5000
+    }
+    min_trade_val_million = trade_val_mapping[trade_val_option]
     min_trade_val_ntd = min_trade_val_million * 10000
 
-    weeks_option = st.selectbox(
+    st.markdown('<p style="font-weight: 800; margin-bottom: 2px; margin-top: 15px;">👥 千張大戶買進週數</p>', unsafe_allow_html=True)
+
+    
+    weeks_option = st.radio(
         "千張大戶連續吸貨週數過濾",
-        ["不限制", "連續 2 週", "連續 3 週", "連續 4 週", "連續 8 週"],
-        help="要求千張大戶比例連續上升的指定週數"
+        options=["不限制", "連續 2 週", "連續 3 週", "連續 4 週", "連續 8 週"],
+        index=0,
+        horizontal=True,
+        label_visibility="collapsed"
     )
     weeks_mapping = {"不限制": 0, "連續 2 週": 2, "連續 3 週": 3, "連續 4 週": 4, "連續 8 週": 8}
     weekly_trend_weeks = weeks_mapping[weeks_option]
 
     st.markdown("---")
-    st.subheader("🚀 法人佔量比最低門檻")
-    min_inst_ratio_20d = st.slider(
-        "20日法人佔量比 (%)",
-        min_value=0.0,
-        max_value=50.0,
-        value=0.0,
-        step=1.0,
-        help="20日外資加投信買超佔總量比"
-    )
-    min_inst_ratio_60d = st.slider(
-        "60日法人佔量比 (%)",
-        min_value=0.0,
-        max_value=20.0,
-        value=0.0,
-        step=1.0,
-        help="60日外資加投信買超佔總量比"
-    )
+    st.markdown('<p style="font-weight: 800; margin-bottom: 2px; font-size: 1.15rem;">🚀 法人機構買超比例最低門檻</p>', unsafe_allow_html=True)
 
+    
+    st.markdown('<p style="font-weight: 700; margin-bottom: 2px; font-size: 1.05rem;">▶️ 20日法人買超比</p>', unsafe_allow_html=True)
+    inst_ratio_20_option = st.radio(
+        "20日法人佔量比 (%)",
+        options=["不限制 (0%)", "高於 5%", "高於 10%", "高於 20%", "高於 30%"],
+        index=0,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    inst_ratio_20_mapping = {
+        "不限制 (0%)": 0.0,
+        "高於 5%": 5.0,
+        "高於 10%": 10.0,
+        "高於 20%": 20.0,
+        "高於 30%": 30.0
+    }
+    min_inst_ratio_20d = inst_ratio_20_mapping[inst_ratio_20_option]
+
+    st.markdown('<p style="font-weight: 700; margin-bottom: 2px; font-size: 1.05rem; margin-top: 15px;">▶️ 60日法人買超比</p>', unsafe_allow_html=True)
+    inst_ratio_60_option = st.radio(
+        "60日法人佔量比 (%)",
+        options=["不限制 (0%)", "高於 3%", "高於 5%", "高於 10%"],
+        index=0,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    inst_ratio_60_mapping = {
+        "不限制 (0%)": 0.0,
+        "高於 3%": 3.0,
+        "高於 5%": 5.0,
+        "高於 10%": 10.0
+    }
+    min_inst_ratio_60d = inst_ratio_60_mapping[inst_ratio_60_option]
+
+    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
     submit_button = st.form_submit_button("🎯 執行籌碼雷達選股", use_container_width=True)
 
 # ==========================================
@@ -573,12 +630,10 @@ if not df_strategy.empty:
         total_stocks_conn.close()
         
         with st.container(border=True):
-            kpi_col1, kpi_col2, kpi_col3 = st.columns(3)
+            kpi_col1, kpi_col2 = st.columns(2)
             with kpi_col1:
                 st.metric("📋 符合篩選股票", f"{total_matches} 檔")
             with kpi_col2:
-                st.metric("💎 長線鎖碼股數", f"{lock_count} 檔")
-            with kpi_col3:
                 st.metric("📊 股票總數", f"{total_stocks} 檔")
 
         
@@ -660,23 +715,21 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
             lock_status = "💎 長線鎖碼中" if row_info["is_long_lock"] else None
             acc_status = "🔥 買盤加速中" if row_info["is_buy_accelerate"] else None
             
-            lock_badge = f'<span class="badge-lock-premium">💎 長線鎖碼</span>' if lock_status else '<span class="badge-normal-premium">— 長線鎖碼未觸發</span>'
-            acc_badge = f'<span class="badge-accelerate-premium">🔥 買盤加速</span>' if acc_status else '<span class="badge-normal-premium">— 買盤加速未觸發</span>'
+            lock_badge = f'<span class="badge-lock-premium">💎 長線鎖碼</span>' if lock_status else ''
+            acc_badge = f'<span class="badge-accelerate-premium">🔥 買盤加速</span>' if acc_status else ''
             
-            st.markdown(f"""
-            <div class="premium-info-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
-                    <div>
-                        <span style="font-size: 1.5rem; font-weight: 800; color: var(--main-title-color);">{row_info['stock_id']} {row_info['stock_name']}</span>
-                        <span style="margin-left: 20px; font-size: 1.1rem; color: #8b949e;">籌碼狀態診斷板 ({selected_date_str})</span>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 10px;">
-                        {lock_badge}
-                        {acc_badge}
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div class="premium-info-card">
+<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+<div>
+<span style="font-size: 2.2rem !important; font-weight: 800; color: var(--main-title-color);">{row_info['stock_id']} {row_info['stock_name']}</span>
+<span style="margin-left: 20px; font-size: 1.2rem !important; color: #8b949e; font-weight: 500;">籌碼狀態診斷板 ({selected_date_str})</span>
+</div>
+<div style="display: flex; gap: 10px; margin-top: 10px; margin-bottom: 10px;">
+{lock_badge}
+{acc_badge}
+</div>
+</div>
+</div>""", unsafe_allow_html=True)
             
             st.markdown('<div class="section-title">📊 股價與交易量能</div>', unsafe_allow_html=True)
             with st.container(border=True):
@@ -692,17 +745,7 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                 with col4:
                     st.metric("發行張數 (股本)", f"{row_info['shares_issued']:,.0f} 張")
             
-            st.markdown('<div class="section-title">💎 主力分點集中度 (前15大券商買賣超)</div>', unsafe_allow_html=True)
-            with st.container(border=True):
-                col5, col6, col7, col8 = st.columns(4)
-                with col5:
-                    st.metric("5日集中度", f"{row_info['concentration_5d']:.2f}%")
-                with col6:
-                    st.metric("20日集中度", f"{row_info['concentration_20d']:.2f}%")
-                with col7:
-                    st.metric("60日集中度", f"{row_info['concentration_60d']:.2f}%")
-                with col8:
-                    st.metric("120日集中度", f"{row_info['concentration_120d']:.2f}%")
+# 主力分點集中度區塊已移除
             
             st.markdown('<div class="section-title">🚀 法人佈局結構 (三大法人買賣)</div>', unsafe_allow_html=True)
             with st.container(border=True):
@@ -795,7 +838,7 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                     vol_20d = row_info.get('vol_20d', 0.0)
                     margin_ratio = (margin_diff / vol_20d * 100) if vol_20d > 0 else 0.0
                     st.metric(
-                        label="20日融資比率 (20日增量/20日總成交量)", 
+                        label="20日融資比率", 
                         value=f"{margin_ratio:+.2f}%" if margin_ratio != 0 else "0.00%",
                         delta=f"{margin_diff:+,.0f} 張" if margin_diff != 0 else None,
                         delta_color="inverse"
@@ -805,7 +848,7 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                     vol_20d = row_info.get('vol_20d', 0.0)
                     short_ratio = (short_diff / vol_20d * 100) if vol_20d > 0 else 0.0
                     st.metric(
-                        label="20日融券比率 (20日增量/20日總成交量)", 
+                        label="20日融券比率", 
                         value=f"{short_ratio:+.2f}%" if short_ratio != 0 else "0.00%",
                         delta=f"{short_diff:+,.0f} 張" if short_diff != 0 else None,
                         delta_color="inverse"

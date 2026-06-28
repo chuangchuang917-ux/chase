@@ -11,6 +11,7 @@ import sqlite3
 import datetime
 import importlib
 import time
+import database as _db_mod
 
 # ── 路徑設定 ─────────────────────────────────────────────
 # 確保能 import 同目錄的 crawler 與 sync_to_supabase_bulk
@@ -75,6 +76,9 @@ def main():
     print(f"[START] Chase 每日自動更新流程啟動")
     print(f"[TIME]  {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
+
+    # 確保資料庫結構存在
+    _db_mod.init_db(os.path.join(ROOT, "taiwan_stock.db"))
 
     target_date = get_latest_trading_day()
     print(f"[INFO]  目標更新日期：{target_date}")

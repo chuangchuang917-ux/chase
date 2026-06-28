@@ -3,6 +3,7 @@ import sys
 import sqlite3
 from datetime import datetime
 import pandas as pd
+import requests
 from FinMind.data import DataLoader
 
 # ==========================================
