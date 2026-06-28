@@ -16,24 +16,39 @@ THIRD_API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5n
 
 API_TOKENS = [PRIMARY_API_TOKEN, FALLBACK_API_TOKEN, THIRD_API_TOKEN]
 TOKEN_CURSOR = 0
+API_CLIENTS = []
+
+def init_api_clients():
+    global API_CLIENTS
+    print("[INFO] 正在初始化 3 組 FinMind API 客戶端...")
+    for idx, token in enumerate(API_TOKENS):
+        for attempt in range(4):
+            try:
+                api = DataLoader()
+                api.login_by_token(api_token=token)
+                API_CLIENTS.append(api)
+                print(f"  API 客戶端 {idx} 初始化成功。")
+                break
+            except Exception as e:
+                print(f"  [WARNING] API 客戶端 {idx} 初始化失敗 (嘗試 {attempt+1}): {e}")
+                time.sleep(5)
+        else:
+            raise Exception(f"無法初始化 FinMind API 客戶端 {idx}")
 
 def get_api_client():
     global TOKEN_CURSOR
-    token = API_TOKENS[TOKEN_CURSOR]
-    api = DataLoader()
-    api.login_by_token(api_token=token)
-    return api
+    return API_CLIENTS[TOKEN_CURSOR]
 
 def rotate_token():
     global TOKEN_CURSOR
-    TOKEN_CURSOR = (TOKEN_CURSOR + 1) % len(API_TOKENS)
+    TOKEN_CURSOR = (TOKEN_CURSOR + 1) % len(API_CLIENTS)
     print(f"[INFO] 切換至 API Token 序號: {TOKEN_CURSOR}")
 
 def fetch_margin_with_retry(stock_id, start_date, end_date):
     """抓取信用交易資料，遇到錯誤或限速時自動輪替 Token 並重試"""
     for attempt in range(4):
-        api = get_api_client()
         try:
+            api = get_api_client()
             df = api.taiwan_stock_margin_purchase_short_sale(
                 stock_id=stock_id,
                 start_date=start_date,
@@ -48,14 +63,14 @@ def fetch_margin_with_retry(stock_id, start_date, end_date):
             print(f"  [WARNING] 股票 {stock_id} 抓取失敗 (嘗試 {attempt+1}): {error_msg}")
             # 如果是限速或其它 API 異常，切換 Token 並休眠
             rotate_token()
-            time.sleep(10)
+            time.sleep(15)
     return None
-
 def main():
     print("=" * 60)
     print("🚀 Chase 歷史信用交易補件更新程式啟動")
     print(f"⏱️ 啟動時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
+    init_api_clients()
 
     # 1. 撈出所有需要更新的股票清單 (即存在 margin_purchase_balance = 0.0 的股票)
     conn = sqlite3.connect(DB_PATH)
