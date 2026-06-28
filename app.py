@@ -45,31 +45,133 @@ st.set_page_config(
 DB_PATH = "taiwan_stock.db"
 
 # ==========================================
+# 0.5. Supabase 雲端資料庫配置與雙軌切換
+# ==========================================
+import requests
+import os
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+# 也可以從 Streamlit secrets 載入
+if not SUPABASE_URL or not SUPABASE_KEY:
+    try:
+        if hasattr(st, "secrets"):
+            SUPABASE_URL = st.secrets.get("SUPABASE_URL", SUPABASE_URL)
+            SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", SUPABASE_KEY)
+    except Exception:
+        pass
+
+# 如果有提供 Supabase URL & KEY，就啟用 Supabase 模式
+USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
+
+if USE_SUPABASE:
+    SUPABASE_HEADERS = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+# ==========================================
 # 1. 取得資料庫最新日期作為預設日期與股票名單
 # ==========================================
 @st.cache_data(ttl=3600)
 def get_db_dates_info():
     """
-    從資料庫讀取最新日期與所有有資料的股票清單
+    從資料庫或 Supabase 讀取最新日期與所有有資料的股票清單
     """
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        # 取得最新交易日
-        res = conn.execute("SELECT MAX(date) FROM daily_chips").fetchone()
-        latest_date_str = res[0] if (res and res[0]) else None
-        
-        # 取得所有不重複股票代號與名稱對照
-        df_stocks = pd.read_sql_query(
-            "SELECT DISTINCT stock_id, stock_name FROM daily_chips ORDER BY stock_id ASC", conn
-        )
-        return latest_date_str, df_stocks
-    except Exception:
-        return None, pd.DataFrame(columns=["stock_id", "stock_name"])
-    finally:
-        conn.close()
+    if USE_SUPABASE:
+        try:
+            # 1. 取得最新交易日
+            url_date = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&order=date.desc&limit=1"
+            r_date = requests.get(url_date, headers=SUPABASE_HEADERS, timeout=10)
+            latest_date_str = None
+            if r_date.status_code == 200 and r_date.json():
+                latest_date_str = r_date.json()[0]["date"]
+            
+            if not latest_date_str:
+                return None, pd.DataFrame(columns=["stock_id", "stock_name"])
+                
+            # 2. 取得該最新交易日之全量股票清單，避免 select distinct 全表
+            url_stocks = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=stock_id,stock_name&date=eq.{latest_date_str}&order=stock_id.asc"
+            r_stocks = requests.get(url_stocks, headers=SUPABASE_HEADERS, timeout=10)
+            if r_stocks.status_code == 200:
+                df_stocks = pd.DataFrame(r_stocks.json())
+                if not df_stocks.empty:
+                    df_stocks = df_stocks[["stock_id", "stock_name"]]
+                return latest_date_str, df_stocks
+            return latest_date_str, pd.DataFrame(columns=["stock_id", "stock_name"])
+        except Exception as e:
+            st.error(f"從 Supabase 讀取日期與股票清單失敗: {e}")
+            return None, pd.DataFrame(columns=["stock_id", "stock_name"])
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            # 取得最新交易日
+            res = conn.execute("SELECT MAX(date) FROM daily_chips").fetchone()
+            latest_date_str = res[0] if (res and res[0]) else None
+            
+            # 取得所有不重複股票代號與名稱對照
+            df_stocks = pd.read_sql_query(
+                "SELECT DISTINCT stock_id, stock_name FROM daily_chips ORDER BY stock_id ASC", conn
+            )
+            return latest_date_str, df_stocks
+        except Exception:
+            return None, pd.DataFrame(columns=["stock_id", "stock_name"])
+        finally:
+            conn.close()
 
 def cached_run_chip_strategy(target_date, weekly_trend_weeks=0, min_trade_value=0, db_path=DB_PATH):
-    return run_chip_strategy(target_date, weekly_trend_weeks, min_trade_value, db_path)
+    if USE_SUPABASE:
+        try:
+            records = []
+            limit = 1000
+            offset = 0
+            while True:
+                req_headers = SUPABASE_HEADERS.copy()
+                req_headers["Range"] = f"{offset}-{offset + limit - 1}"
+                url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?date=eq.{target_date}"
+                r = requests.get(url, headers=req_headers, timeout=15)
+                if r.status_code != 200:
+                    break
+                data = r.json()
+                if not data:
+                    break
+                records.extend(data)
+                if len(data) < limit:
+                    break
+                offset += limit
+                
+            df = pd.DataFrame(records)
+            if df.empty:
+                return df
+                
+            # 轉換資料型別以防 JSON string 造成計算錯誤
+            numeric_cols = [
+                "close", "volume", "shares_issued", 
+                "ratio_foreign_trust_20d", "ratio_foreign_trust_20d_capital",
+                "ratio_foreign_trust_60d", "ratio_foreign_trust_60d_capital",
+                "concentration_5d", "concentration_20d", "concentration_60d", "concentration_120d",
+                "price_change_60d", "holder_over_1000", "holder_over_400",
+                "margin_purchase_balance", "short_sale_balance",
+                "margin_purchase_change_20d", "short_sale_change_20d", "vol_20d",
+                "holder_growth_weeks"
+            ]
+            for col in numeric_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0)
+                    
+            # 進行與 run_chip_strategy 同等的過濾
+            df = df[df["close"] * df["volume"] * 1000 >= min_trade_value]
+            if weekly_trend_weeks > 0:
+                df = df[df["holder_growth_weeks"] >= weekly_trend_weeks]
+                
+            return df
+        except Exception as e:
+            st.error(f"從 Supabase 取得策略選股結果失敗: {e}")
+            return pd.DataFrame()
+    else:
+        return run_chip_strategy(target_date, weekly_trend_weeks, min_trade_value, db_path)
 
 latest_date_str, df_all_stocks = get_db_dates_info()
 
@@ -92,24 +194,39 @@ def handle_search():
     if "diagnose_stock_search_field" in st.session_state:
         search_val = st.session_state.diagnose_stock_search_field.strip()
         if search_val:
-            conn = sqlite3.connect(DB_PATH)
-            try:
-                res = conn.execute(
-                    "SELECT DISTINCT stock_id, stock_name FROM daily_chips WHERE stock_id = ? LIMIT 1",
-                    (search_val,)
-                ).fetchone()
-                if res:
-                    matched_str = f"{res[0]} - {res[1]}"
-                    st.session_state.selected_stock_str = matched_str
-                    # 預設搜尋重設日期為最新交易日
-        
-                    st.session_state.search_success = f"🔎 搜尋成功：已加載 {matched_str}，並已重設日期至最新交易日！"
-                    if "search_warning" in st.session_state:
-                        del st.session_state.search_warning
-                else:
-                    st.session_state.search_warning = f"⚠️ 找不到代號為 '{search_val}' 的股票，將維持原選定股票。"
-            finally:
-                conn.close()
+            if USE_SUPABASE:
+                try:
+                    url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=stock_id,stock_name&stock_id=eq.{search_val}&limit=1"
+                    r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+                    if r.status_code == 200 and r.json():
+                        res = r.json()[0]
+                        matched_str = f"{res['stock_id']} - {res['stock_name']}"
+                        st.session_state.selected_stock_str = matched_str
+                        st.session_state.search_success = f"🔎 搜尋成功：已加載 {matched_str}，並已重設日期至最新交易日！"
+                        if "search_warning" in st.session_state:
+                            del st.session_state.search_warning
+                    else:
+                        st.session_state.search_warning = f"⚠️ 找不到代號為 '{search_val}' 的股票，將維持原選定股票。"
+                except Exception as e:
+                    st.session_state.search_warning = f"⚠️ Supabase 查詢出錯: {e}"
+            else:
+                conn = sqlite3.connect(DB_PATH)
+                try:
+                    res = conn.execute(
+                        "SELECT DISTINCT stock_id, stock_name FROM daily_chips WHERE stock_id = ? LIMIT 1",
+                        (search_val,)
+                    ).fetchone()
+                    if res:
+                        matched_str = f"{res[0]} - {res[1]}"
+                        st.session_state.selected_stock_str = matched_str
+            
+                        st.session_state.search_success = f"🔎 搜尋成功：已加載 {matched_str}，並已重設日期至最新交易日！"
+                        if "search_warning" in st.session_state:
+                            del st.session_state.search_warning
+                    else:
+                        st.session_state.search_warning = f"⚠️ 找不到代號為 '{search_val}' 的股票，將維持原選定股票。"
+                finally:
+                    conn.close()
 
 # ==========================================
 # 2. 載入自定義 CSS 提升視覺質感
@@ -622,12 +739,20 @@ if not df_strategy.empty:
     if not df_strategy.empty:
         total_matches = len(df_strategy)
         lock_count = df_strategy["is_long_lock"].sum()
-        total_stocks_conn = sqlite3.connect(DB_PATH)
-        total_stocks = total_stocks_conn.execute(
-            "SELECT COUNT(DISTINCT stock_id) FROM daily_chips WHERE date = ?",
-            (selected_date_str,)
-        ).fetchone()[0]
-        total_stocks_conn.close()
+        if USE_SUPABASE:
+            try:
+                url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=stock_id&date=eq.{selected_date_str}"
+                r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+                total_stocks = len(r.json()) if r.status_code == 200 else 0
+            except Exception:
+                total_stocks = 0
+        else:
+            total_stocks_conn = sqlite3.connect(DB_PATH)
+            total_stocks = total_stocks_conn.execute(
+                "SELECT COUNT(DISTINCT stock_id) FROM daily_chips WHERE date = ?",
+                (selected_date_str,)
+            ).fetchone()[0]
+            total_stocks_conn.close()
         
         with st.container(border=True):
             kpi_col1, kpi_col2 = st.columns(2)
@@ -699,7 +824,8 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
     selected_stock_id = selected_stock_str.split(" - ")[0]
     selected_stock_name = selected_stock_str.split(" - ")[1]
     
-    conn = sqlite3.connect(DB_PATH)
+    if not USE_SUPABASE:
+        conn = sqlite3.connect(DB_PATH)
     try:
         df_strat_all = cached_run_chip_strategy(
             target_date=selected_date_str, 
@@ -761,10 +887,35 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
 
             st.markdown('<div class="section-title">👥 集保大戶結構 (股權分散明細)</div>', unsafe_allow_html=True)
             
-            df_weekly_hist = pd.read_sql_query(
-                "SELECT date, holder_over_1000, holder_over_400 FROM weekly_shareholders WHERE stock_id = ? AND date <= ? ORDER BY date DESC",
-                conn, params=(selected_stock_id, selected_date_str)
-            )
+            if USE_SUPABASE:
+                try:
+                    # 從 Supabase 讀取該股票所有的歷史資料 (截至 selected_date_str)
+                    url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date,holder_over_1000,holder_over_400&stock_id=eq.{selected_stock_id}&date=lte.{selected_date_str}&order=date.desc"
+                    r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+                    if r.status_code == 200:
+                        df_daily_hist = pd.DataFrame(r.json())
+                        if not df_daily_hist.empty:
+                            df_daily_hist["holder_over_1000"] = pd.to_numeric(df_daily_hist["holder_over_1000"], errors='coerce').fillna(0.0)
+                            df_daily_hist["holder_over_400"] = pd.to_numeric(df_daily_hist["holder_over_400"], errors='coerce').fillna(0.0)
+                            
+                            # 利用 W-FRI resample 將日資料降採樣為週資料
+                            df_daily_hist["date_dt"] = pd.to_datetime(df_daily_hist["date"])
+                            df_weekly_hist = df_daily_hist.set_index("date_dt").resample("W-FRI").last().dropna().reset_index()
+                            df_weekly_hist["date"] = df_weekly_hist["date_dt"].dt.strftime("%Y-%m-%d")
+                            df_weekly_hist = df_weekly_hist.sort_values(by="date", ascending=False)
+                            df_weekly_hist = df_weekly_hist[["date", "holder_over_1000", "holder_over_400"]]
+                        else:
+                            df_weekly_hist = pd.DataFrame(columns=["date", "holder_over_1000", "holder_over_400"])
+                    else:
+                        df_weekly_hist = pd.DataFrame(columns=["date", "holder_over_1000", "holder_over_400"])
+                except Exception as e:
+                    st.error(f"從 Supabase 讀取集保大戶歷史失敗: {e}")
+                    df_weekly_hist = pd.DataFrame(columns=["date", "holder_over_1000", "holder_over_400"])
+            else:
+                df_weekly_hist = pd.read_sql_query(
+                    "SELECT date, holder_over_1000, holder_over_400 FROM weekly_shareholders WHERE stock_id = ? AND date <= ? ORDER BY date DESC",
+                    conn, params=(selected_stock_id, selected_date_str)
+                )
             
             consec_1000_delta = None
             consec_400_delta = None
@@ -863,4 +1014,5 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
     except Exception as e:
         st.error(f"詳細指標面板載入失敗: {e}")
     finally:
-        conn.close()
+        if not USE_SUPABASE:
+            conn.close()

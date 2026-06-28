@@ -114,8 +114,8 @@ def main():
         print(f"[{idx+1}/{total_stocks}] 正在補件 {sid} (期間: {min_date} 至 {max_date}) ...")
         df_margin = fetch_margin_with_retry(sid, min_date, max_date)
         
-        # 為了避免超出每小時 1800 次的額度限制，每次請求間隔 2.0 秒
-        time.sleep(2.0)
+        # 為了避免超出每小時 1800 次的額度限制，每次請求間隔 0.2 秒
+        time.sleep(0.2)
 
         if df_margin is not None and not df_margin.empty:
             # 3. 寫入資料庫 (SQL UPDATE)
