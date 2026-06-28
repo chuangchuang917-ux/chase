@@ -651,15 +651,6 @@ st.sidebar.text_input(
 
 st.sidebar.button("🔍 執行個股診斷", on_click=handle_search, use_container_width=True)
 
-selected_stock_str = st.sidebar.selectbox(
-    "或從清單中挑選：", 
-    options=stock_options, 
-    index=stock_options.index(default_stock) if default_stock in stock_options else 0
-)
-
-if selected_stock_str != "請先執行爬蟲匯入資料":
-    st.session_state.selected_stock_str = selected_stock_str
-
 # 最低成交金額與策略條件選擇 (樂齡大字體易點擊設計)
 with st.sidebar.form(key="filter_form"):
     st.markdown('<p style="font-weight: 800; margin-bottom: 2px;">💰 股票成交熱度門檻</p>', unsafe_allow_html=True)
