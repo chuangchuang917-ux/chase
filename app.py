@@ -940,22 +940,27 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                             df_daily_hist["holder_over_1000"] = pd.to_numeric(df_daily_hist["holder_over_1000"], errors='coerce').fillna(0.0)
                             df_daily_hist["holder_over_400"] = pd.to_numeric(df_daily_hist["holder_over_400"], errors='coerce').fillna(0.0)
                             
-                            # 將日資料過濾出實際週集保發布日（主要是週五，若週五連假則為週四）
+                            # 1. 取得每週（ISO年、週）的最後一個交易日（因為 desc 排序，第一筆就是該週的最後交易日，亦即集保發布日）
                             df_daily_hist["date_dt"] = pd.to_datetime(df_daily_hist["date"])
-                            df_weekly_hist = df_daily_hist[df_daily_hist["date_dt"].dt.weekday == 4].copy()
+                            df_daily_hist["iso_year"] = df_daily_hist["date_dt"].dt.isocalendar().year
+                            df_daily_hist["iso_week"] = df_daily_hist["date_dt"].dt.isocalendar().week
                             
-                            # 防禦性檢查：如果查詢的最末天是週四 (weekday == 3)，且該週五尚未出現在資料中（代表週五放假提前至週四發布）
-                            if not df_daily_hist.empty:
-                                latest_row = df_daily_hist.iloc[0]
-                                latest_date = latest_row["date_dt"]
-                                if latest_date.weekday() == 3:  # 週四
-                                    latest_week = latest_date.isocalendar()
-                                    existing_weeks = df_weekly_hist["date_dt"].dt.isocalendar().apply(lambda x: (x.year, x.week)).tolist()
-                                    if (latest_week.year, latest_week.week) not in existing_weeks:
-                                        df_weekly_hist = pd.concat([pd.DataFrame([latest_row]), df_weekly_hist], ignore_index=True)
-                            
-                            df_weekly_hist["date"] = df_weekly_hist["date_dt"].dt.strftime("%Y-%m-%d")
+                            df_weekly_hist = df_daily_hist.groupby(["iso_year", "iso_week"]).first().reset_index()
                             df_weekly_hist = df_weekly_hist.sort_values(by="date", ascending=False)
+                            
+                            # 2. 連假週四提早發布之防禦定義列表
+                            HOLIDAY_THURSDAYS = {"2026-06-18", "2026-04-30", "2026-02-12", "2025-10-09"}
+                            
+                            # 3. 判斷最新的一週（即 selected_date_str 所在的週）是否為「未完結的週」
+                            if not df_weekly_hist.empty:
+                                latest_row = df_weekly_hist.iloc[0]
+                                if latest_row["date"] == selected_date_str:
+                                    latest_date = pd.to_datetime(selected_date_str)
+                                    # 若最新一天交易日不是週五，且不在連假提早發布的週四名單中，代表該週集保尚未發布，應予以排除
+                                    is_completed = (latest_date.weekday() == 4) or (selected_date_str in HOLIDAY_THURSDAYS)
+                                    if not is_completed:
+                                        df_weekly_hist = df_weekly_hist.iloc[1:]
+                            
                             df_weekly_hist = df_weekly_hist[["date", "holder_over_1000", "holder_over_400"]]
                         else:
                             df_weekly_hist = pd.DataFrame(columns=["date", "holder_over_1000", "holder_over_400"])
