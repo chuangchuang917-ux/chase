@@ -633,8 +633,11 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   3. 腳本內部實作了三組免費 API Token（Primary, Fallback, Third）的自動輪替 (Token Rotation) 與限速休眠 (Auto-sleep) 機制。
   
 * **執行狀況**：
-  * 已成功啟動背景更新任務，每檔股票預留 2 秒安全間隔，全市場 1,931 檔預計花費約 1 小時 15 分鐘全自動補齊。
-  * 經初期觀測，順利撈取 FinMind 數據並以 SQLite `UPDATE` 寫入（如個股 `1781` 成功更新 135 筆歷史紀錄）。
+  * **異常處理與優化**：執行初期曾遭遇 `requests.exceptions.ConnectTimeout`（在查詢第 254 檔股票時因登入請求逾時造成中斷）。
+    * *修復*：我隨即將 `get_api_client()` 的 API 登入邏輯獨立移出至 `main()` 啟動時**一次性初始化 3 組客戶端**，後續個股更新時**直接複用已登入之客戶端**（節省一半 API 呼叫，且大幅提高執行速度與穩定度）。
+    * *修復*：將客戶端實例的獲取一同納入 `try-except` 捕獲範圍，確保偶發性網路斷線或 API 抖動可被自動重試。
+  * **目前進度**：已重啟優化後的背景更新任務（Task ID: `task-351`），每檔股票預留 2 秒安全間隔，全市場 1,931 檔預計花費約 1 小時內自動補齊。
+  * **初期觀測**：金鑰輪替運作非常穩定，成功撈取 FinMind 數據並以 SQLite `UPDATE` 寫入（如個股 `1781` 成功更新 135 筆歷史紀錄）。
 
 
 
