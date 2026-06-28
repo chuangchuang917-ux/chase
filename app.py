@@ -1,4 +1,3 @@
-import streamlit as np_st  # 避免 st 縮寫衝突
 import streamlit as st
 import sqlite3
 import pandas as pd
@@ -50,6 +49,10 @@ DB_PATH = "taiwan_stock.db"
 import requests
 import os
 
+# Hardcoded fallback (anon public key，僅供讀取，安全可公開)
+_DEFAULT_SUPABASE_URL = "https://xjalllcvwbgnxwcruhzz.supabase.co"
+_DEFAULT_SUPABASE_KEY = "sb_publishable_4jXrUcO-DXpwGu4QklflXg_v7w4IYNt"
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
@@ -61,6 +64,11 @@ if not SUPABASE_URL or not SUPABASE_KEY:
             SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", SUPABASE_KEY)
     except Exception:
         pass
+
+# 若環境變數與 secrets 皆未設定，使用 hardcoded fallback
+if not SUPABASE_URL or not SUPABASE_KEY:
+    SUPABASE_URL = _DEFAULT_SUPABASE_URL
+    SUPABASE_KEY = _DEFAULT_SUPABASE_KEY
 
 # 如果有提供 Supabase URL & KEY，就啟用 Supabase 模式
 USE_SUPABASE = bool(SUPABASE_URL and SUPABASE_KEY)
