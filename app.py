@@ -360,11 +360,22 @@ common_css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
-/* 全域字體與行高巨大化 */
-html, body, [class*="css"], .stApp, p, span, label, input, select, button {
+/* 全域字體與行高巨大化，排除內建 Icon 與側邊欄收折按鈕 */
+html, body, [class*="css"], .stApp, p, 
+span:not([data-testid="stIconMaterial"]):not([class*="Icon"]), 
+label, input, select, 
+button:not([data-testid="collapsedControl"]) {
     font-family: 'Outfit', 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
     font-size: 19px !important;
     line-height: 1.6 !important;
+}
+
+/* 還原 Streamlit 內建圖標字型，避免圖標顯示為 ligature 英文 (如 keyboard_double_arrow) */
+[data-testid="stIconMaterial"],
+[data-testid="stIcon"],
+[data-testid="collapsedControl"] *,
+[class*="Icon"] {
+    font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons", "Segoe UI Symbol", sans-serif !important;
 }
 
 /* 隱藏右下角 Streamlit 官方發佈/管理按鈕與連線狀態小圖示 */
@@ -710,46 +721,10 @@ if st.sidebar.button("📱 切換至手機版", key="switch_to_mobile", use_cont
     st.query_params["layout"] = "mobile"
     st.rerun()
 
-if "analysis_date_widget" not in st.session_state:
-    st.session_state.analysis_date_widget = default_date
-
-date_header_col, date_btn_col = st.sidebar.columns([3, 1])
-with date_header_col:
-    st.markdown('<p style="font-size: 14px; font-weight: 600; margin-bottom: 0px; margin-top: 5px;">選擇策略分析日期</p>', unsafe_allow_html=True)
-with date_btn_col:
-    if st.button("今日", key="btn_reset_today", use_container_width=True):
-        st.session_state.analysis_date_widget = default_date
-        st.rerun()
-
-selected_date = st.sidebar.date_input(
-    "選擇策略分析日期", 
-    value=st.session_state.analysis_date_widget,
-    label_visibility="collapsed"
-)
-if selected_date is None:
-    selected_date = default_date
-selected_date_str = selected_date.strftime("%Y-%m-%d")
-
-# 檢查是否為開盤交易日，若不是則自動往前推
-nearest_date_str = get_nearest_trading_date(selected_date_str)
-if nearest_date_str != selected_date_str:
-    from datetime import datetime
-    st.session_state.analysis_date_widget = datetime.strptime(nearest_date_str, "%Y-%m-%d").date()
-    st.session_state.date_adjusted_warning = f"⚠️ {selected_date_str} 非開盤交易日，已自動調整至最近的交易日 {nearest_date_str}。"
-    st.rerun()
-else:
-    st.session_state.analysis_date_widget = selected_date
-
-# 顯示調整後的警告訊息
-if "date_adjusted_warning" in st.session_state:
-    st.sidebar.warning(st.session_state.date_adjusted_warning)
-    del st.session_state.date_adjusted_warning
-
 # Reduce top margin before the diagnosis subheader for tighter layout
 st.markdown("<style>.stSidebar h2 {margin-top: 4px !important;}</style>", unsafe_allow_html=True)
 
-# 🔍 個股診斷查詢
-st.sidebar.markdown("---")
+# 🔍 個股診斷查詢 (移至上方)
 st.sidebar.subheader("🔍 個股診斷查詢")
 
 if not df_all_stocks.empty:
@@ -771,10 +746,42 @@ st.sidebar.text_input(
 
 st.sidebar.button("🔍 執行個股診斷", on_click=handle_search, use_container_width=True)
 
-# 最低成交金額與策略條件選擇 (樂齡大字體易點擊設計)
-with st.sidebar.form(key="filter_form"):
-    st.markdown('<p style="font-weight: 800; margin-bottom: 2px;">💰 股票成交熱度門檻</p>', unsafe_allow_html=True)
+st.sidebar.markdown("---")
 
+# 📅 選擇策略分析日期 與 篩選條件 (移至下方，使用同一個 Form)
+if "analysis_date_widget" not in st.session_state:
+    st.session_state.analysis_date_widget = default_date
+
+with st.sidebar.form(key="filter_form"):
+    st.markdown('<p style="font-weight: 800; margin-bottom: 2px;">📅 選擇策略分析日期</p>', unsafe_allow_html=True)
+    
+    selected_date = st.date_input(
+        "選擇策略分析日期", 
+        value=st.session_state.analysis_date_widget,
+        label_visibility="collapsed"
+    )
+    if selected_date is None:
+        selected_date = default_date
+    selected_date_str = selected_date.strftime("%Y-%m-%d")
+    
+    # 檢查是否為開盤交易日，若不是則自動往前推
+    nearest_date_str = get_nearest_trading_date(selected_date_str)
+    if nearest_date_str != selected_date_str:
+        from datetime import datetime
+        st.session_state.analysis_date_widget = datetime.strptime(nearest_date_str, "%Y-%m-%d").date()
+        st.session_state.date_adjusted_warning = f"⚠️ {selected_date_str} 非開盤交易日，已自動調整至最近的交易日 {nearest_date_str}。"
+        st.session_state.force_recalc_after_adjustment = True
+        st.rerun()
+    else:
+        st.session_state.analysis_date_widget = selected_date
+
+    # 顯示調整後的警告訊息
+    if "date_adjusted_warning" in st.session_state:
+        st.warning(st.session_state.date_adjusted_warning)
+        del st.session_state.date_adjusted_warning
+
+    st.markdown("---")
+    st.markdown('<p style="font-weight: 800; margin-bottom: 2px;">💰 股票成交熱度門檻</p>', unsafe_allow_html=True)
     
     trade_val_option = st.radio(
         "最低成交金額",
@@ -793,7 +800,6 @@ with st.sidebar.form(key="filter_form"):
     min_trade_val_ntd = min_trade_val_million * 10000
 
     st.markdown('<p style="font-weight: 800; margin-bottom: 2px; margin-top: 15px;">👥 千張大戶買進週數</p>', unsafe_allow_html=True)
-
     
     weeks_option = st.radio(
         "千張大戶連續吸貨週數過濾",
@@ -807,7 +813,6 @@ with st.sidebar.form(key="filter_form"):
 
     st.markdown("---")
     st.markdown('<p style="font-weight: 800; margin-bottom: 2px; font-size: 1.15rem;">🚀 法人機構買超比例最低門檻</p>', unsafe_allow_html=True)
-
     
     st.markdown('<p style="font-weight: 700; margin-bottom: 2px; font-size: 1.05rem;">▶️ 20日法人買超比</p>', unsafe_allow_html=True)
     inst_ratio_20_option = st.radio(
@@ -855,15 +860,18 @@ with st.sidebar.form(key="filter_form"):
 st.markdown(f'<div class="main-section-title">🎯 籌碼雷達選股結果 ({selected_date_str})</div>', unsafe_allow_html=True)
 
 date_changed = st.session_state.get("_last_strategy_date", "") != selected_date_str
-force_recalc = submit_button or date_changed or "_df_strategy_cache" not in st.session_state
+force_recalc = submit_button or date_changed or st.session_state.get("force_recalc_after_adjustment", False) or "_df_strategy_cache" not in st.session_state
 
 if force_recalc:
-    df_strategy = cached_run_chip_strategy(
-        target_date=selected_date_str,
-        weekly_trend_weeks=weekly_trend_weeks,
-        min_trade_value=min_trade_val_ntd,
-        db_path=DB_PATH
-    )
+    if "force_recalc_after_adjustment" in st.session_state:
+        st.session_state.force_recalc_after_adjustment = False
+    with st.spinner("🔍 正在篩選股票中..."):
+        df_strategy = cached_run_chip_strategy(
+            target_date=selected_date_str,
+            weekly_trend_weeks=weekly_trend_weeks,
+            min_trade_value=min_trade_val_ntd,
+            db_path=DB_PATH
+        )
     st.session_state["_df_strategy_cache"] = df_strategy
     st.session_state["_last_strategy_date"] = selected_date_str
 else:

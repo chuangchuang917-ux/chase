@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import requests
 import textwrap
+import os
 from datetime import datetime, date
 
 # ==========================================
@@ -79,26 +80,31 @@ def clean_html(html_str):
 # ==========================================
 @st.cache_data(ttl=3600)
 def get_available_trading_dates():
+    # 優先使用本地 SQLite，速度極快 (0.02秒) 且省流量
+    try:
+        if os.path.exists(DB_PATH):
+            conn = sqlite3.connect(DB_PATH)
+            res = conn.execute("SELECT DISTINCT date FROM daily_chips ORDER BY date DESC").fetchall()
+            conn.close()
+            if res:
+                return [r[0] for r in res]
+    except Exception:
+        pass
+
+    # 若無本地資料庫，才從 Supabase 讀取 (限制筆數避免全表掃描當機)
     if USE_SUPABASE:
         try:
-            # 取得所有有資料的日期清單
-            url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date"
-            # 限制日期筆數以優化效能
-            records = _supabase_fetch_all(url, SUPABASE_HEADERS)
-            if records:
-                dates = sorted(list(set([r["date"] for r in records])), reverse=True)
-                return dates
+            # 限制讀取最新 10000 筆紀錄，約包含最新的 5-10 個交易日，這對行動版已足夠
+            url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&order=date.desc&limit=10000"
+            r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+            if r.status_code == 200:
+                records = r.json()
+                if records:
+                    dates = sorted(list(set([r["date"] for r in records])), reverse=True)
+                    return dates
         except Exception as e:
             st.error(f"從 Supabase 讀取交易日失敗: {e}")
     
-    # SQLite Fallback
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        res = conn.execute("SELECT DISTINCT date FROM daily_chips ORDER BY date DESC").fetchall()
-        conn.close()
-        return [r[0] for r in res]
-    except Exception:
-        pass
     return [str(date.today())]
 
 # ==========================================
@@ -208,8 +214,19 @@ def calculate_consecutive_weeks(stock_ids, target_date):
                 for sid in stock_ids:
                     df_sid = df_hist[df_hist["stock_id"] == sid].groupby(["iso_year", "iso_week"]).first().reset_index()
                     df_sid = df_sid.sort_values(by="date", ascending=False)
-                    dict_1000[sid] = _calc_consec(df_sid["holder_over_1000"].tolist())
-                    dict_400[sid] = _calc_consec(df_sid["holder_over_400"].tolist())
+                    
+                    val_1000 = df_sid["holder_over_1000"].tolist()
+                    val_400 = df_sid["holder_over_400"].tolist()
+                    
+                    # 處理當前交易日為週一至週四且本週尚未發布新集保資料時的重複填補問題
+                    if len(df_sid) >= 2:
+                        latest_date = pd.to_datetime(df_sid.iloc[0]["date"])
+                        if latest_date.weekday() < 4 and val_1000[0] == val_1000[1] and val_400[0] == val_400[1]:
+                            val_1000 = val_1000[1:]
+                            val_400 = val_400[1:]
+                            
+                    dict_1000[sid] = _calc_consec(val_1000)
+                    dict_400[sid] = _calc_consec(val_400)
         except Exception:
             pass
     else:
@@ -237,11 +254,22 @@ elder_css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap');
 
-/* 全域字體與行高巨大化，確保老眼花長輩極易閱讀 */
-html, body, [class*="css"], .stApp, p, span, label, input, select, button {
+/* 全域字體與行高巨大化，確保老眼花長輩極易閱讀，排除內建 Icon 與側邊欄收折按鈕 */
+html, body, [class*="css"], .stApp, p, 
+span:not([data-testid="stIconMaterial"]):not([class*="Icon"]), 
+label, input, select, 
+button:not([data-testid="collapsedControl"]) {
     font-family: 'Outfit', 'Segoe UI', 'Microsoft JhengHei', sans-serif !important;
     font-size: 20px !important;
     line-height: 1.7 !important;
+}
+
+/* 還原 Streamlit 內建圖標字型，避免圖標顯示為 ligature 英文 (如 keyboard_double_arrow) */
+[data-testid="stIconMaterial"],
+[data-testid="stIcon"],
+[data-testid="collapsedControl"] *,
+[class*="Icon"] {
+    font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons", "Segoe UI Symbol", sans-serif !important;
 }
 
 .stApp {
@@ -534,6 +562,7 @@ if not df_strategy.empty:
             margin_diff = row["margin_purchase_change_20d"]
             short_diff = row["short_sale_change_20d"]
             vol_20d = row.get("vol_20d", 0.0)
+            volume_val = row.get("volume", 0.0)
             
             # 計算融資券比率
             margin_ratio = (margin_diff / vol_20d * 100) if vol_20d > 0 else 0.0
@@ -566,7 +595,10 @@ if not df_strategy.empty:
                 <div class="elder-card-title">
                     <div>
                         <span>{stock_id} {stock_name}</span>
-                        <div style="margin-top: 6px;">{badge_html}</div>
+                        <div style="margin-top: 6px; font-weight: normal; font-size: 1.15rem; color: #8b949e;">
+                            成交張數：<span style="color: #ffffff; font-weight: bold;">{volume_val:,.0f}</span> 張
+                        </div>
+                        {f'<div style="margin-top: 6px;">{badge_html}</div>' if badge_html else ''}
                     </div>
                     <div style="text-align: right;">
                         <div style="font-size: 1.9rem; color: #ffeb3b;">{close_val:.2f} 元</div>
