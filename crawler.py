@@ -562,6 +562,8 @@ def fetch_and_save_data(start_date, end_date):
             print("[ERROR] 免費帳戶不支援全市場的歷史日籌碼回溯，請付費升級 FinMind 帳戶或分批下載。")
             return
             
+        headers = {"User-Agent": "Mozilla/5.0"}
+            
         df_day = fetch_daily_data_from_open_apis(target_stocks)
         if df_day.empty:
             print("[WARNING] 無法從 OpenAPI 獲取最新日報資料。")

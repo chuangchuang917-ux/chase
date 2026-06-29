@@ -656,6 +656,129 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
        ```
   4. **對接 Supabase**：協助使用者將前端 `app.py` 的 SQLite 查詢端點改為讀取雲端 Supabase 資料庫，完成最終整合。
 
+---
+
+## 29. 啟動 Streamlit 看板服務 (2026-06-29)
+
+* **啟動指令**：
+  ```bash
+  python -m streamlit run app.py
+  ```
+* **運行狀態**：
+  * Streamlit 伺服器成功在 `http://localhost:8501` 啟動。
+  * 使用瀏覽器自動化工具（`open_streamlit_app`）進行驗證，網頁成功載入且無報錯。
+  * 標題展示為 **`🔥 自動化高階籌碼鎖碼雷達`**。
+* **驗證截圖**：
+  * 截圖已儲存至：[radar_page_loaded_1782717333436.png](file:///C:/Users/alber/.gemini/antigravity-ide/brain/7680abe5-f50e-48ff-977d-a8dde179448f/radar_page_loaded_1782717333436.png)
+
+---
+
+## 30. 修復 6/26 資料查詢異常與補件同步 (2026-06-29)
+
+* **問題描述**：
+  使用者反應 6/26 資料查詢有異常。經排查後發現，Supabase 雲端資料庫上 `2026-06-26` 的資料中多數核心欄位（如發行張數 `shares_issued`、大戶佔量比 `holder_over_1000`、集保變化等）皆為 `0.0` 或預設值，而本機 SQLite 資料庫中的資料卻是完整的。
+  主要原因：
+  1. `crawler.py` 的 `fetch_and_save_data` 中，使用 OpenAPI 模式進行股本補齊時，誤用了未定義的 `headers` 變數（即 `NameError: name 'headers' is not defined`），導致 GitHub Actions 自動同步時抓取股本失敗而填補為 `0.0`。
+  2. 週資料更新是由本地集保爬蟲完成，自動同步時尚未合併。
+
+* **所做變更與修復**：
+  1. **修復 Crawler Bug**：修改了 [crawler.py](file:///c:/Users/alber/Desktop/antigravity/chase/crawler.py#L560-L566)，在 `use_openapi_mode` 區塊起始點明確宣告 `headers = {"User-Agent": "Mozilla/5.0"}`，防止後續 HTTP 請求因變數未定義而中斷。
+  2. **修復 Sync Single Date Bug**：修改了 [sync_single_date.py](file:///c:/Users/alber/Desktop/antigravity/chase/sync_single_date.py#L71-L75)，補上缺少之 `df["vol_20d"] = safe(v20)` 變數指定，防止同步時 20 日法人佔量比分母缺失。
+  3. **數據補件與同步**：在本地執行了 `python sync_single_date.py 2026-06-26`，利用完整的本機 SQLite 歷史數據重新計算 6/26 的所有滾動與週指標，並 Upsert 覆蓋雲端 Supabase 的資料（共成功同步 1,968 筆個股資料）。
+
+* **驗證結果**：
+  已透過瀏覽器自動化檢驗儀表板（`verify_626_dashboard`），確認 `2026-06-26` 之數據完全正常且無報錯。例如台積電（2330）的收盤價、發行張數（25,932,400張）、千張大戶比（85.11%）與大戶比（87.83%）皆已正確渲染。
+  * **驗證錄影**：[verify_626_dashboard_1782717927615.webp](file:///C:/Users/alber/.gemini/antigravity-ide/brain/7680abe5-f50e-48ff-977d-a8dde179448f/verify_626_dashboard_1782717927615.webp)
+
+---
+
+## 31. 日曆非開盤日防呆與自動修正 (2026-06-29)
+
+* **需求描述**：
+  使用者希望將日曆中沒有開盤的日期設為無法點選。由於 Streamlit 原生 `st.date_input` 元件不支援單日禁用或週末禁用，故採用「自動修正 + 警告提示」的互動設計。
+
+* **所做變更與實作**：
+  1. **新增輔助函式**：在 [app.py](file:///c:/Users/alber/Desktop/antigravity/chase/app.py#L103-L137) 中新增 `get_nearest_trading_date(target_date_str)` 函式。該函式會自適應地向 Supabase 或 SQLite 查詢不大於目標日期的最近交易開盤日，若查無則回傳最新交易日。
+  2. **修正 Widget 設定**：將 `st.sidebar.date_input` 的 `key="analysis_date_widget"` 參數移除（改以單純 value 綁定控制，防止 Streamlit 的內部狀態快取衝突），並在使用者變更日期時，立即判定是否為開盤日：
+     - 若為非開盤日，自動將選取日期覆寫更新為最近開盤日，並寫入 `st.session_state.date_adjusted_warning`，然後調用 `st.rerun()`。
+     - 重新運行後，由側邊欄顯示警告橫幅：`⚠️ {選取日} 非開盤交易日，已自動調整至最近的交易日 {修正日}。`
+
+* **驗證結果**：
+  已透過瀏覽器自動化檢驗（`verify_date_correction_fixed`），在選定 `2026-06-28`（週日）後，頁面能立即自動跳轉回 `2026-06-26`（週五），並成功渲染出黃色警告警示。
+  * **驗證截圖**：[date_rollback_warning_1782718791186.png](file:///C:/Users/alber/.gemini/antigravity-ide/brain/7680abe5-f50e-48ff-977d-a8dde179448f/date_rollback_warning_1782718791186.png)
+  * **驗證錄影**：[verify_date_correction_fixed_1782718762779.webp](file:///C:/Users/alber/.gemini/antigravity-ide/brain/7680abe5-f50e-48ff-977d-a8dde179448f/verify_date_correction_fixed_1782718762779.webp)
+
+---
+
+## 32. 適合長輩閱讀之行動端整合版面實作 (2026-06-29)
+
+* **需求描述**：
+  針對 70 歲以上的長者在手機瀏覽的需求，將篩選功能與搜尋結果卡片化整合在單一版面中，具體要求包含：
+  - **篩選條件（全下拉選單與大按鈕）**：
+    1. 策略分析日期：僅顯示有交易的日期。
+    2. 成交熱度門檻：下拉選單（不限制、1,000萬、2,000萬、5,000萬）。
+    3. 千張大戶買進週數：下拉選單（不限制、2週、3週、4週、8週）。
+    4. 法人佔量比門檻：20日（不限制、5%~20%）、60日（不限制、5%~20%）。
+  - **搜尋結果卡片化呈現**：
+    1. 股價與交易量能：收盤價、60日漲跌幅。
+    2. 法人佈局結構：20日/60日法人佔量比。
+    3. 集保大戶結構：千張大戶持股比、400張以上大戶比（顯示連續買進週數與變動比例）。
+    4. 信用交易：20日融資比率與張數變化、20日融券比率與張數變化。
+
+* **所做變更與實作**：
+  1. **建立行動專屬版面**：新建 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py)。
+  2. **長輩無障礙 UI 設計**：以高強度 CSS 大字體（主要字體 20px，名稱與股價 28px+ 以上）、高對比配色、大觸控點擊目標按鈕來建置，極大化單欄瀑布流排版。
+  3. **資料處理與篩選**：從資料庫拉取不重複交易日期做成選單，篩選按鈕不進行即時重整，在按下大按鈕「🎯 執行籌碼雷達選股」後統一執行。
+  4. **大戶連續週數計算**：依據選取的篩選結果股票清單，優化為一鍵批量對 Supabase/SQLite 進行週持股變化比對，動態產出 400張大戶的「買進 N 週 (變動%)」說明文字。
+  5. **渲染安全性**：使用 `st.html` 配合自訂的 `clean_html` 函式清除多行 HTML 原始碼的所有前導縮排與空格，避免 Streamlit Markdown 誤將縮排解析為 pre/code 區塊。
+
+* **驗證結果**：
+  已透過瀏覽器自動化檢驗（`verify_mobile_rendering_final_st_html`），在 `http://localhost:8502/` 運行完全正常。按鈕與選單均能直覺操作，且股票卡片完美套用 CSS 樣式，無任何 raw HTML 標籤暴露。
+  * **驗證截圖**：[scrolled_results_2_1782722617016.png](file:///C:/Users/alber/.gemini/antigravity-ide/brain/7680abe5-f50e-48ff-977d-a8dde179448f/scrolled_results_2_1782722617016.png)
+  * **驗證錄影**：[verify_mobile_rendering_final_st_html_1782722258382.webp](file:///C:/Users/alber/.gemini/antigravity-ide/brain/7680abe5-f50e-48ff-977d-a8dde179448f/verify_mobile_rendering_final_st_html_1782722258382.webp)
+
+---
+
+## 33. 手機版新增搜尋功能與修復 Supabase 分頁 Bug (2026-06-29)
+
+* **問題描述**：
+  手機版 (`app_mobile.py`) 缺少個股搜尋功能，使用者無法直接輸入代號（如 `2330`）或名稱（如 `台積電`）來查詢特定個股的籌碼診斷卡片。此外，即使新增搜尋框後，搜尋 `2330` 仍返回零結果。
+
+* **根因分析**：
+  `cached_run_chip_strategy` 中 Supabase 分頁迴圈的 HTTP 狀態碼判斷寫為 `if r.status_code != 200: break`，但 Supabase 的 `Range` header 分頁機制會回傳 **HTTP 206 Partial Content**（而非 200）。這導致分頁迴圈**在第一批 1000 筆即中斷**，而資料庫中共有 1968 筆個股，代號 `2330` 位於第二頁（offset 1000 之後），因此永遠無法被載入。
+
+* **所做變更**：
+  1. **新增搜尋框**：在 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L452-L458) 篩選區新增 `🔍 搜尋特定個股` 文字輸入框，支援代號或名稱模糊查詢。
+  2. **搜尋邏輯整合**：在 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L492-L512) 加入搜尋過濾邏輯。若在目前策略篩選結果中找不到目標個股，會自動放寬條件重新查詢資料庫（個股診斷模式）。
+  3. **修復分頁 Bug**：將 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L115) 的 `if r.status_code != 200` 修正為 `if r.status_code not in (200, 206)`，正確處理 Supabase 的 Partial Content 回應。
+
+* **驗證結果**：
+  透過命令列測試腳本驗證，修復後分頁正確載入全部 1968 筆個股資料，搜尋 `2330` 成功匹配 1 筆（台積電，收盤價 2340.0 元）。
+
+---
+
+## 34. 手機版標題微調與千張大戶變動欄位新增 (2026-06-29)
+
+* **所做變更**：
+  1. **大戶週變動補齊**：將 `calculate_consecutive_weeks_400` 改寫為同時查詢並回傳 `holder_over_1000` 與 `holder_over_400` 的連續增減週數，並在股票卡片中新增「👉 千張大戶週變動：」顯示列。
+  2. **標題放大**：調整 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L375) 的首頁大標題「🔥 高階籌碼雷達」之 `font-size` 自 `2.4rem` 放大至 `3.2rem`，更加符合長輩易讀的標準。
+  3. **副標題移除**：將原有的「👵 專為手機瀏覽設計：字體超大，操作簡單 👴」副標題行移除，精簡版面。
+
+---
+
+## 35. 實現自動偵測螢幕寬度與雙向手動切換版面 (2026-06-29)
+
+* **需求描述**：
+  使用者希望在網頁開啟時，系統能看是要選擇手機版還是電腦版瀏覽，然後再切換至適合 the 頁面。
+
+* **解決方案與變更**：
+  1. **自動偵測與跳轉**：在電腦版入口 [app.py](file:///c:/Users/alber/Desktop/antigravity/chase/app.py#L10-L53) 最頂端注入一小段前端 JS。當偵測到螢幕寬度小於等於 768px（代表手機用戶）時，會將 URL 的 query 參數設定為 `?layout=mobile`，並自動重新導向。若大於 768px 則導向為 `?layout=desktop`。
+  2. **統一入口執行**：若 URL 參數為 `layout=mobile`，[app.py](file:///c:/Users/alber/Desktop/antigravity/chase/app.py#L46-L53) 會自動以 `exec` 機制直接在當前進程載入並執行手機老齡版網頁 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py)，不需要讓使用者分開記兩個 Port。
+  3. **防呆雙向切換**：
+     - 電腦版 [app.py](file:///c:/Users/alber/Desktop/antigravity/chase/app.py#L705-L709) 的側邊欄新增大按鈕 `📱 切換至手機版`。
+     - 手機版 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L378-L383) 標題下方新增大按鈕 `💻 切換至電腦版`。
+     點擊按鈕後會更新 `st.query_params` 並重新執行，完美相容手動切換。
+  4. **相容性修復**：將 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L12-L22) 的 `st.set_page_config` 使用 `try/except` 包覆，避免自電腦版 exec 載入時因重疊設定 page config 產生 API 異常。
 
 
 

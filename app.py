@@ -7,6 +7,52 @@ import json
 from datetime import datetime, date
 from strategy import run_chip_strategy
 
+# ==========================================
+# 自動偵測螢幕寬度與版面切換 (方案二)
+# ==========================================
+if "layout" not in st.query_params:
+    st.markdown("### 🔍 正在自動偵測並載入適合的版面...")
+    st.components.v1.html("""
+    <script>
+        try {
+            // 安全偵測：使用本視窗寬度與 UserAgent，避免跨域 (Same-Origin Policy) 讀取錯誤
+            const width = window.innerWidth;
+            const isMobile = width <= 768 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+            const targetLayout = isMobile ? 'mobile' : 'desktop';
+            
+            // 使用本視窗的 host 構建跳轉 URL，完全避免讀取 window.top.location 產生的跨域安全阻擋
+            const host = window.location.protocol + "//" + window.location.host + "/";
+            const targetUrl = host + "?layout=" + targetLayout;
+            
+            // 寫入 top.location 是瀏覽器允許的跨域行為
+            window.top.location.href = targetUrl;
+        } catch (e) {
+            console.error("Redirection failed:", e);
+        }
+    </script>
+    """, height=0)
+    
+    # 提供手動切換 fallback 選項以防 JS 未載入
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📱 手機版瀏覽", use_container_width=True):
+            st.query_params["layout"] = "mobile"
+            st.rerun()
+    with col2:
+        if st.button("💻 電腦版瀏覽", use_container_width=True):
+            st.query_params["layout"] = "desktop"
+            st.rerun()
+    st.stop()
+
+# 根據 URL 參數載入不同版面
+layout_param = st.query_params.get("layout", "desktop")
+if layout_param == "mobile":
+    # 執行手機版網頁
+    with open("app_mobile.py", encoding="utf-8") as f:
+        code = f.read()
+    exec(code, globals())
+    st.stop()
+
 DEFAULT_DISPLAY_ORDER = [
     "stock_id", "stock_name", "close", "volume", "price_change_60d",
     "ratio_foreign_trust_20d", "ratio_foreign_trust_20d_capital",
@@ -99,6 +145,39 @@ def _supabase_fetch_all(url, headers, timeout=15):
             break
         offset += limit
     return records
+
+def get_nearest_trading_date(target_date_str):
+    """
+    尋找不大於 target_date_str 的最近開盤交易日。
+    """
+    if USE_SUPABASE:
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&date=lte.{target_date_str}&order=date.desc&limit=1"
+            r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+            if r.status_code == 200 and r.json():
+                return r.json()[0]["date"]
+            # 若 lte 查不到，回傳最新交易日
+            url_latest = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&order=date.desc&limit=1"
+            r_latest = requests.get(url_latest, headers=SUPABASE_HEADERS, timeout=10)
+            if r_latest.status_code == 200 and r_latest.json():
+                return r_latest.json()[0]["date"]
+        except Exception:
+            pass
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        try:
+            res = conn.execute("SELECT MAX(date) FROM daily_chips WHERE date <= ?", (target_date_str,)).fetchone()
+            if res and res[0]:
+                return res[0]
+            # 若 lte 查不到，回傳最新交易日
+            res_latest = conn.execute("SELECT MAX(date) FROM daily_chips").fetchone()
+            if res_latest and res_latest[0]:
+                return res_latest[0]
+        except Exception:
+            pass
+        finally:
+            conn.close()
+    return target_date_str
 
 # ==========================================
 # 1. 取得資料庫最新日期作為預設日期與股票名單
@@ -627,6 +706,9 @@ st.info(
 # 5. 左側控制列 (Sidebar Controls)
 # ==========================================
 st.sidebar.header("🎯 策略控制中心")
+if st.sidebar.button("📱 切換至手機版", key="switch_to_mobile", use_container_width=True):
+    st.query_params["layout"] = "mobile"
+    st.rerun()
 
 if "analysis_date_widget" not in st.session_state:
     st.session_state.analysis_date_widget = default_date
@@ -642,12 +724,27 @@ with date_btn_col:
 selected_date = st.sidebar.date_input(
     "選擇策略分析日期", 
     value=st.session_state.analysis_date_widget,
-    key="analysis_date_widget",
     label_visibility="collapsed"
 )
 if selected_date is None:
     selected_date = default_date
 selected_date_str = selected_date.strftime("%Y-%m-%d")
+
+# 檢查是否為開盤交易日，若不是則自動往前推
+nearest_date_str = get_nearest_trading_date(selected_date_str)
+if nearest_date_str != selected_date_str:
+    from datetime import datetime
+    st.session_state.analysis_date_widget = datetime.strptime(nearest_date_str, "%Y-%m-%d").date()
+    st.session_state.date_adjusted_warning = f"⚠️ {selected_date_str} 非開盤交易日，已自動調整至最近的交易日 {nearest_date_str}。"
+    st.rerun()
+else:
+    st.session_state.analysis_date_widget = selected_date
+
+# 顯示調整後的警告訊息
+if "date_adjusted_warning" in st.session_state:
+    st.sidebar.warning(st.session_state.date_adjusted_warning)
+    del st.session_state.date_adjusted_warning
+
 # Reduce top margin before the diagnosis subheader for tighter layout
 st.markdown("<style>.stSidebar h2 {margin-top: 4px !important;}</style>", unsafe_allow_html=True)
 
