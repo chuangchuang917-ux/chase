@@ -692,20 +692,6 @@ div[data-testid="stVerticalBlockBorderInside"] [data-testid="stMetricLabel"],
 st.markdown(textwrap.dedent(common_css + theme_css), unsafe_allow_html=True)
 
 # ==========================================
-# 3. 頂置主題按鈕
-# ==========================================
-with st.container(key="theme_toggle_container"):
-    theme_btn_col1, theme_btn_col2 = st.columns(2)
-    with theme_btn_col1:
-        if st.button("☀️ 白天", key="btn_theme_l_top", use_container_width=True):
-            st.session_state.theme = "light"
-            st.rerun()
-    with theme_btn_col2:
-        if st.button("🌙 黑夜", key="btn_theme_d_top", use_container_width=True):
-            st.session_state.theme = "dark"
-            st.rerun()
-
-# ==========================================
 # 4. 標題與核心思維呈現
 # ==========================================
 st.markdown("<h1 style=\"font-size:3rem; font-weight:800; margin-top:20px; margin-bottom:20px;\">🔥 自動化高階籌碼鎖碼雷達</h1>", unsafe_allow_html=True)

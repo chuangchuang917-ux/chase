@@ -863,3 +863,39 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 * **部署網址**：
   - 公開專案連結：[https://chase-stock-radar.streamlit.app/](https://chase-stock-radar.streamlit.app/)
   - 使用者現在只需直接刷新上述網址，即可在線上使用包含手機老齡版切換與 6/29 最新數據的全功能籌碼雷達系統。
+
+---
+
+## 40. 修復雲端部署版手機版日期停留在 6/26 的問題 (2026-06-30)
+
+* **問題描述**：
+  使用者反應本地端 `app_mobile.py` 可正常看到 `2026-06-29` 日期，但部署至 Streamlit Cloud 後日期選單仍顯示舊日期 `2026-06-26`。
+
+* **根因分析**：
+  1. **`taiwan_stock.db` 被意外提交至 Git 倉庫**：這個 40MB 的 SQLite 資料庫檔案雖然在 `.gitignore` 設定了 `*.db` 排除規則，但因先前已被 `git add` 追蹤，`.gitignore` 對已追蹤的檔案不會生效。
+  2. **Streamlit Cloud 部署時帶入舊資料庫**：雲端容器從 GitHub 拉取整個倉庫，包含這個只有到 6/26 資料的舊 SQLite 檔案。
+  3. **`app_mobile.py` 的日期讀取優先順序錯誤**：`get_available_trading_dates()` 函式原本**優先檢查本地 SQLite**，找到舊資料庫後直接返回，**完全跳過了 Supabase 查詢**（Supabase 已有最新的 6/29 資料）。
+
+* **解決方案與變更**：
+  1. **從 Git 追蹤中移除資料庫檔案**：
+     ```bash
+     git rm --cached taiwan_stock.db
+     ```
+     此操作僅移除 Git 追蹤，不會刪除本地檔案。`.gitignore` 中的 `*.db` 規則會在移除追蹤後自動生效。
+  2. **修正 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L81-L108) 日期讀取優先順序**：
+     將 `get_available_trading_dates()` 改為**優先查詢 Supabase**（雲端部署場景），僅在 Supabase 不可用時才退回本地 SQLite（本地開發場景）。此邏輯與桌面版 `app.py` 保持一致。
+  3. **提交並推送至 GitHub**：觸發 Streamlit Cloud 自動重新部署。
+
+---
+
+## 41. 移除電腦網頁版主題切換按鈕 (2026-06-30)
+
+* **需求描述**：
+  移除電腦網頁版（[app.py](file:///c:/Users/alber/Desktop/antigravity/chase/app.py)）頂部的「☀️ 白天」與「🌙 黑夜」兩個主題切換按鈕。
+
+* **所做變更與實作**：
+  1. **移除 HTML 元件與事件處理**：從 `app.py` 中刪除了 `theme_toggle_container` 部分，該區塊原本渲染這兩個按鈕，並在點擊後設定 `st.session_state.theme` 進行 `st.rerun()`。
+  2. **保留預設主題樣式**：保留預設為 `dark`（深色模式）的系統設定，使得系統樣式仍能完美符合炫酷深藍色的介面外觀，避免介面混亂。
+  3. **自動部署推播**：將 `app.py` 與 `walkthrough.md` 的修改 commit 並 push 至 GitHub，等待 Streamlit Cloud 自動重新建置生效。
+
+
