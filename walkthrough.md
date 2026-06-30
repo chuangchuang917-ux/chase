@@ -780,5 +780,46 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
      點擊按鈕後會更新 `st.query_params` 並重新執行，完美相容手動切換。
   4. **相容性修復**：將 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L12-L22) 的 `st.set_page_config` 使用 `try/except` 包覆，避免自電腦版 exec 載入時因重疊設定 page config 產生 API 異常。
 
+---
 
+## 36. 啟動 app_mobile.py 網頁伺服器並驗證 (2026-06-30)
+
+* **需求描述**：
+  使用者要求將 `chase` 資料夾內的 `app_mobile.py` 網頁開啟並運行。
+
+* **所做變更與實作**：
+  1. **啟動背景服務**：在 `chase` 目錄下以 `python -m streamlit run app_mobile.py` 啟動 Streamlit 伺服器，預設運行於本地埠口 `8501`。
+  2. **自動化驗證**：調用瀏覽器子代理 (browser subagent) 導航至 `http://localhost:8501`。
+  3. **功能測試**：
+     - 確認網頁標題顯示為 `🔥 高階籌碼雷達 (手機老齡版)`，載入完全正常且無 UI 錯誤。
+     - 輸入股票代號 `2330`（台積電）進行搜尋，成功檢索並呈現大字體的個股診斷結構與大戶籌碼變動指標卡片。
+
+* **驗證截圖與錄影**：
+  - **首頁加載與搜尋結果截圖**：[search_results_page.png](file:///C:/Users/alber/.gemini/antigravity-ide/brain/1db8296a-c75c-4b1f-a1a2-6109528671fb/search_results_page_1782800322659.png)
+  - **自動化驗證錄影**：[open_app_mobile_page.webp](file:///C:/Users/alber/.gemini/antigravity-ide/brain/1db8296a-c75c-4b1f-a1a2-6109528671fb/open_app_mobile_page_1782800240633.webp)
+
+---
+
+## 37. 修復 2026-06-26 日期無資料/全為 0 的同步異常 (2026-06-30)
+
+* **問題描述**：
+  使用者反應 2026-06-26 (週五) 查詢時出現錯誤提示：`ℹ️ 當前日期無籌碼選股資料。請先手動執行 crawler.py 匯入歷史數據，或選擇其它已有數據的交易日期。`
+
+* **根因分析**：
+  1. **SQLite 本地端**：經查詢 `taiwan_stock.db` 本地端，`2026-06-26` 的日籌碼及大戶週持股資料皆完整存在。
+  2. **Supabase 雲端**：查詢 Supabase 發現 `2026-06-26` 已有 1968 筆策略選股結果紀錄，但其中的指標欄位（如大戶持股比、股本數、漲跌幅）全數皆為 `0` 或 `False`。
+  3. **起因**：此乃因該日期在最早自動更新同步時，本地資料庫尚未爬取/載入對應的週持股大戶資料（通常週五晚間才公佈），导致計算出的合併欄位皆為預設值 `0`，而後續沒有及時執行 Upsert 更新。
+
+* **解決方案與變更**：
+  1. 呼叫單日同步指令 [sync_single_date.py](file:///c:/Users/alber/Desktop/antigravity/chase/sync_single_date.py)：
+     ```bash
+     python sync_single_date.py 2026-06-26
+     ```
+     該指令加載本地 SQLite 的完整歷史對照，重新計算 `2026-06-26` 的所有滾動指標，並正確 Upsert 重寫至 Supabase 表 `chase_strategy_results` 中。
+
+* **驗證結果**：
+  - **Supabase 欄位資料**：經測試查詢台積電 (2330)、群創 (2409) 等個股在 `2026-06-26` 的欄位（例如 60日漲跌、大戶比）皆已成功修正為正確非零數值。
+  - **網頁選股功能**：使用瀏覽器子代理 (browser subagent) 設定篩選條件「千張大戶連續買進 2 週」並執行選股，系統順利檢索出符合的 **56** 檔主力鎖碼股票卡片，原先的「當前日期無籌碼選股資料」警示成功消除。
+  - **自動化驗證錄影**：[verify_updated_june_26.webp](file:///C:/Users/alber/.gemini/antigravity-ide/brain/1db8296a-c75c-4b1f-a1a2-6109528671fb/verify_updated_june_26_1782800854536.webp)
+  - **篩選結果截圖**：[strategy_results_loaded.png](file:///C:/Users/alber/.gemini/antigravity-ide/brain/1db8296a-c75c-4b1f-a1a2-6109528671fb/strategy_results_loaded_1782801067905.png)
 

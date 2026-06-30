@@ -43,10 +43,14 @@ _sync_mod.DB_PATH = os.path.join(ROOT, "taiwan_stock.db")
 # ── 工具函式 ──────────────────────────────────────────────
 def get_latest_trading_day():
     """
-    取得「上一個交易日」的日期字串 YYYY-MM-DD。
+    取得「上一個交易日」的日期字串 YYYY-MM-DD (基於台灣時間 UTC+8)。
     台灣交易日為週一到週五（簡單判斷，不考慮國定假日）。
     """
-    today = datetime.date.today()
+    # 取得台灣時間 (UTC+8) 的今日日期，以相容 GitHub Actions 伺服器 UTC 時區
+    utc_now = datetime.datetime.utcnow()
+    tw_now = utc_now + datetime.timedelta(hours=8)
+    today = tw_now.date()
+    
     # 往前推到最近的平日
     delta = 1
     candidate = today - datetime.timedelta(days=delta)
@@ -54,6 +58,7 @@ def get_latest_trading_day():
         delta += 1
         candidate = today - datetime.timedelta(days=delta)
     return str(candidate)
+
 
 def date_already_in_db(target_date: str) -> bool:
     """
