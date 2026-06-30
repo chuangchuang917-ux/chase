@@ -80,7 +80,20 @@ def clean_html(html_str):
 # ==========================================
 @st.cache_data(ttl=3600)
 def get_available_trading_dates():
-    # 優先使用本地 SQLite，速度極快 (0.02秒) 且省流量
+    # 雲端部署時優先使用 Supabase（確保抓到最新同步日期）
+    if USE_SUPABASE:
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&order=date.desc&limit=10000"
+            r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+            if r.status_code == 200:
+                records = r.json()
+                if records:
+                    dates = sorted(list(set([r["date"] for r in records])), reverse=True)
+                    return dates
+        except Exception as e:
+            st.error(f"從 Supabase 讀取交易日失敗: {e}")
+
+    # Supabase 不可用時，退回本地 SQLite（本地開發環境）
     try:
         if os.path.exists(DB_PATH):
             conn = sqlite3.connect(DB_PATH)
@@ -91,21 +104,8 @@ def get_available_trading_dates():
     except Exception:
         pass
 
-    # 若無本地資料庫，才從 Supabase 讀取 (限制筆數避免全表掃描當機)
-    if USE_SUPABASE:
-        try:
-            # 限制讀取最新 10000 筆紀錄，約包含最新的 5-10 個交易日，這對行動版已足夠
-            url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&order=date.desc&limit=10000"
-            r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
-            if r.status_code == 200:
-                records = r.json()
-                if records:
-                    dates = sorted(list(set([r["date"] for r in records])), reverse=True)
-                    return dates
-        except Exception as e:
-            st.error(f"從 Supabase 讀取交易日失敗: {e}")
-    
     return [str(date.today())]
+
 
 # ==========================================
 # 2. 策略篩選核心引擎
