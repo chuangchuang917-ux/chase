@@ -78,7 +78,7 @@ def clean_html(html_str):
 # ==========================================
 # 1. 取得所有開盤交易日清單 (沒有交易的日期，不要顯示)
 # ==========================================
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def get_available_trading_dates():
     # 雲端部署時優先使用 Supabase（確保抓到最新同步日期）
     if USE_SUPABASE:

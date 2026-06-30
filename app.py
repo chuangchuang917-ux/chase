@@ -182,7 +182,7 @@ def get_nearest_trading_date(target_date_str):
 # ==========================================
 # 1. 取得資料庫最新日期作為預設日期與股票名單
 # ==========================================
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=300)
 def get_db_dates_info():
     """
     從資料庫或 Supabase 讀取最新日期與所有有資料的股票清單
