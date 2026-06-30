@@ -845,4 +845,21 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   - 成功向 Supabase 查詢 6/29 選股資料，返回 1,970 筆完整紀錄。
   - 行動版網頁已可正常點選 **`2026-06-29`** 並正常渲染個股籌碼卡片。
 
+---
 
+## 39. 將修改完成網頁部署至 Streamlit Cloud (2026-06-30)
+
+* **需求描述**：
+  使用者要求將目前在本地修改並驗證完畢的網頁（包含電腦版、手機老齡版與排程時區修正）全面部署至網路的公開平台。
+
+* **所做變更與實作**：
+  1. **程式碼打包與推送**：
+     - 將所有已在本地完成功能與 UI 驗證的變更程式碼（[app.py](file:///c:/Users/alber/Desktop/antigravity/chase/app.py)、[app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py)、[daily_update.py](file:///c:/Users/alber/Desktop/antigravity/chase/daily_update.py)）暫存並進行 Git 提交。
+     - 與遠端主分支進行同步（`git pull --rebase`），隨後順利將最新 commit 推送至 GitHub 主分支（`master`）。
+  2. **自動部署觸發**：
+     - 本專案已與 **Streamlit Community Cloud** 服務綁定。
+     - 當 master 分支收到最新推送時，Streamlit Cloud 隨即自動拉取最新程式碼，進行映像檔重新構建與線上部署更新。
+
+* **部署網址**：
+  - 公開專案連結：[https://chase-stock-radar.streamlit.app/](https://chase-stock-radar.streamlit.app/)
+  - 使用者現在只需直接刷新上述網址，即可在線上使用包含手機老齡版切換與 6/29 最新數據的全功能籌碼雷達系統。
