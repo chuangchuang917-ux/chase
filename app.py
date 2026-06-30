@@ -1050,7 +1050,7 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                     else:
                         inst_delta = None
                     
-                    st.metric("20日法人佔量比", f"{row_info['ratio_foreign_trust_20d']:.2f}%", delta=inst_delta)
+                    st.metric("20日法人佔量比", f"{row_info['ratio_foreign_trust_20d']:.2f}%", delta=inst_delta, delta_color="inverse")
                 with col10:
                     st.metric("20日買超股本比", f"{row_info['ratio_foreign_trust_20d_capital']:.4f}%")
                 with col11:
