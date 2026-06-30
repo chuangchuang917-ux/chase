@@ -603,8 +603,9 @@ if not df_strategy.empty:
             consec_text_400 = consec_dict_400.get(stock_id, "持平")
             
             # 法人連續買賣超天數
-            if USE_SUPABASE:
-                consec_days = int(row.get("inst_consec_days", 0)) if pd.notna(row.get("inst_consec_days")) else 0
+            consec_days = 0
+            if "inst_consec_days" in row and pd.notna(row["inst_consec_days"]):
+                consec_days = int(row["inst_consec_days"])
             else:
                 consec_days = get_local_inst_consec_days(stock_id, selected_date_str)
                 

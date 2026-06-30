@@ -1037,8 +1037,9 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
             with st.container(border=True):
                 col9, col10, col11, col12 = st.columns(4)
                 with col9:
-                    if USE_SUPABASE:
-                        consec_days = int(row_info.get("inst_consec_days", 0)) if pd.notna(row_info.get("inst_consec_days")) else 0
+                    consec_days = 0
+                    if "inst_consec_days" in row_info and pd.notna(row_info["inst_consec_days"]):
+                        consec_days = int(row_info["inst_consec_days"])
                     else:
                         consec_days = get_local_inst_consec_days(selected_stock_id, selected_date_str)
                     
