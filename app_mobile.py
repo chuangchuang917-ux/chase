@@ -83,7 +83,8 @@ def get_available_trading_dates():
     # 雲端部署時優先使用 Supabase（確保抓到最新同步日期）
     if USE_SUPABASE:
         try:
-            url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&order=date.desc&limit=10000"
+            # 藉由查詢台積電 (2330) 取得所有開盤交易日清單（台積電每個交易日皆有資料，可避開 PostgREST 1000 筆限制且極快）
+            url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&stock_id=eq.2330&order=date.desc&limit=1000"
             r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
             if r.status_code == 200:
                 records = r.json()
