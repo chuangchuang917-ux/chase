@@ -970,25 +970,30 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 
 ---
 
-## 47. 工作交接與未完任務清單 (2026-06-30 20:50)
+## 47. 補齊最後 4 檔上櫃股與全量歷史資料完成同步 (2026-07-01)
 
-### 📋 下一個 Agent 的待辦清單 (TODOs)
-1. **[ ] 待額度重置後，補齊最後 4 檔上櫃股**：
-   - 待 API 額度重置後（預計為明日 2026-07-01），在 `chase/` 目錄下重新執行：
-     ```bash
-     python -u backfill_tpex_finmind.py
-     ```
-   - 目的：補載最後剩餘的 **4 檔** 上櫃股：`9950`、`9951`、`9960`、`9962`。
-2. **[ ] 執行 Supabase 資料庫指標重算與同步**：
-   - 執行以下命令將最後補齊的 4 檔個股指標上傳至 Supabase：
-     ```bash
-     python -u sync_to_supabase_bulk.py
-     ```
+* **需求描述**：
+  補載最後剩餘的 **4 檔** 上櫃股 (`9950`、`9951`、`9960`、`9962`) 的歷史籌碼與信用交易資料，並全量重新計算指標同步至 Supabase。
+
+* **所做變更與實作**：
+  1. **補齊最後 4 檔上櫃股**：
+     - 執行 [backfill_tpex_finmind.py](file:///c:/Users/chuang/Desktop/antigravity/chase/backfill_tpex_finmind.py)，從斷點繼續下載並更新剩餘的 4 檔個股。
+     - **執行結果**：`9950`、`9951`、`9960`、`9962` 四檔股票皆成功處理，分別寫入 131 筆歷史數據至本地 SQLite `taiwan_stock.db`。此時全市場上櫃股歷史補件已 **100% 圓滿完成**！
+  2. **Supabase 全量重新計算與同步**：
+     - 再次執行 [sync_to_supabase_bulk.py](file:///c:/Users/chuang/Desktop/antigravity/chase/sync_to_supabase_bulk.py)，對本地 SQLite 的全量 272,696 筆日資料重新計算 20日/60日 等滾動策略指標，並分批上傳覆蓋至 Supabase 雲端資料庫。
+     - **同步耗時**：**427.48 秒** 順利同步完畢，無任何錯誤。
+
+* **驗證結果**：
+  - 成功向 Supabase 查詢最後 4 檔股票在 `2026-04-14` 的數值：
+    - `9950`：`ratio_foreign_trust_20d` = `0.49%`
+    - `9951`：`ratio_foreign_trust_20d` = `-0.08%`
+    - `9960`：`ratio_foreign_trust_20d` = `-4.35%`
+    - `9962`：`ratio_foreign_trust_20d` = `2.00%`
+  - 數據已順利入庫並計算完成，線上 Streamlit 儀表板已經可以即時載入並顯示此四檔個股在歷史日期中的正確籌碼數據。
 
 ### ⚙️ 當前系統狀態
-- **累計已完成**：**890 檔** 上櫃股歷史資料（外資、投信買賣超與信用交易）已成功修復補件並同步至 Supabase。
-- **僅剩餘**：**4 檔** 上櫃股尚未補齊。
-- **FinMind 金鑰**：金鑰運作正常，但額度已達上限（HTTP 402），需等待額度重置。
+- **累計已完成**：**所有上櫃股 (共 894 檔)** 歷史資料（外資、投信買賣超與信用交易）已成功修復補載，並重算滾動指標全量同步至 Supabase 中。
+- **後續維護**：自動排程將於每日清晨 02:00（台灣時間）定時執行 `daily_update.py` 來爬取前一日最新收盤數據並 Upsert 到 Supabase，完全無須再手動干預。
 
 
 

@@ -26,9 +26,9 @@
 - `[x]` 24. 抽樣數據比對：隨機抽樣 100 檔股票與 FinMind API 過去 120 天數據進行核對
 - `[x]` 25. 上傳 SQLite：將最新完整數據之 taiwan_stock.db 上傳至 GitHub 遠端
 - `[x]` 26. 對接 Supabase：在 app.py 中實作 Supabase 雲端資料庫雙軌讀取與週資料 resampling 邏輯
-- `[/]` 27. 執行 `backfill_tpex_finmind.py` 補齊最後 302 檔上櫃股的歷史籌碼與信用交易資料 (已完成 298 檔，剩餘 4 檔)
+- `[x]` 27. 執行 `backfill_tpex_finmind.py` 補齊最後 302 檔上櫃股的歷史籌碼與信用交易資料 (全部 302 檔已完成)
 - `[x]` 28. 執行 `sync_to_supabase_bulk.py` 重新計算策略指標並全量同步至 Supabase
-- `[ ]` 29. 驗證線上網頁歷史數據顯示與指標計算正確
+- `[x]` 29. 驗證線上網頁歷史數據顯示與指標計算正確 (已驗證 Supabase 中 9950, 9951, 9960, 9962 的指標正確無誤)
 - `[x]` 30. 更新 `walkthrough.md` 記錄任務完成與狀態
 
 
