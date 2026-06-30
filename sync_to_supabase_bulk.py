@@ -32,6 +32,29 @@ def calculate_consecutive_growth(series):
         counts.append(current_count)
     return counts
 
+def get_consec_days(series):
+    consec = []
+    current_count = 0
+    current_sign = 0
+    for val in series:
+        if val > 0.00001:
+            sign = 1
+        elif val < -0.00001:
+            sign = -1
+        else:
+            sign = 0
+            
+        if sign == 0:
+            current_count = 0
+            current_sign = 0
+        elif sign == current_sign:
+            current_count += sign
+        else:
+            current_sign = sign
+            current_count = sign
+        consec.append(current_count)
+    return consec
+
 def sync_data_bulk():
     print("[INFO] 連接 SQLite 資料庫並載入完整資料...")
     conn = sqlite3.connect(DB_PATH)
@@ -79,6 +102,9 @@ def sync_data_bulk():
         df["margin_purchase_change_20d"] = df["margin_purchase_change_20d"].fillna(0.0)
         df["short_sale_change_20d"] = df["short_sale_change_20d"].fillna(0.0)
         
+        df["inst_daily"] = df["foreign_buy_shares"] + df["trust_buy_shares"]
+        df["inst_consec_days"] = grouped["inst_daily"].transform(get_consec_days).astype(int)
+        
         print("[INFO] 策略計算完成。載入並計算每週大戶持股資料...")
         
         # 3. 載入並計算每週大戶持股成長週數
@@ -125,7 +151,7 @@ def sync_data_bulk():
             "holder_over_1000", "holder_over_400",
             "margin_purchase_balance", "short_sale_balance",
             "margin_purchase_change_20d", "short_sale_change_20d",
-            "vol_20d", "holder_growth_weeks"
+            "vol_20d", "holder_growth_weeks", "inst_consec_days"
         ]
         
         # 補足缺失欄位
@@ -155,8 +181,16 @@ def sync_data_bulk():
             url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results"
             response = requests.post(url, headers=HEADERS, json=batch)
             if response.status_code not in (200, 201):
-                print(f"[ERROR] 上傳失敗 (第 {idx} 筆到第 {idx+batch_size} 筆)：{response.text}")
-                response.raise_for_status()
+                # 如果因為 inst_consec_days 欄位不存在而失敗，嘗試排除該欄位後重試
+                if "inst_consec_days" in response.text:
+                    print("[WARN] Supabase 資料表缺少 'inst_consec_days' 欄位，排除該欄位並重試...")
+                    for r in batch:
+                        r.pop("inst_consec_days", None)
+                    response = requests.post(url, headers=HEADERS, json=batch)
+                
+                if response.status_code not in (200, 201):
+                    print(f"[ERROR] 上傳失敗 (第 {idx} 筆到第 {idx+batch_size} 筆)：{response.text}")
+                    response.raise_for_status()
                 
             if idx % 10000 == 0 or idx + batch_size >= total_records:
                 elapsed = time.time() - start_upload_time

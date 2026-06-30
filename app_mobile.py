@@ -191,6 +191,35 @@ def _calc_consec(values):
     else:
         return "持平"
 
+def get_local_inst_consec_days(stock_id, target_date):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.execute(
+            "SELECT (foreign_buy_shares + trust_buy_shares) FROM daily_chips WHERE stock_id = ? AND date <= ? ORDER BY date DESC LIMIT 30",
+            (stock_id, target_date)
+        )
+        rows = [r[0] for r in cursor.fetchall()]
+        conn.close()
+        
+        if not rows:
+            return 0
+        
+        first_val = rows[0]
+        if abs(first_val) < 0.00001:
+            return 0
+            
+        sign = 1 if first_val > 0 else -1
+        consec = 0
+        for val in rows:
+            val_sign = 1 if val > 0.00001 else (-1 if val < -0.00001 else 0)
+            if val_sign == sign:
+                consec += sign
+            else:
+                break
+        return consec
+    except Exception:
+        return 0
+
 def calculate_consecutive_weeks(stock_ids, target_date):
     """回傳 (dict_1000, dict_400)，每個 dict 的 key 為 stock_id"""
     if not stock_ids:
@@ -573,6 +602,19 @@ if not df_strategy.empty:
             consec_text_1000 = consec_dict_1000.get(stock_id, "持平")
             consec_text_400 = consec_dict_400.get(stock_id, "持平")
             
+            # 法人連續買賣超天數
+            if USE_SUPABASE:
+                consec_days = int(row.get("inst_consec_days", 0)) if pd.notna(row.get("inst_consec_days")) else 0
+            else:
+                consec_days = get_local_inst_consec_days(stock_id, selected_date_str)
+                
+            if consec_days > 0:
+                inst_consec_text = f'<span class="value-key" style="font-size:1.0rem; color:#4caf50; font-weight:bold; margin-left:8px;">(連買 {consec_days} 天)</span>'
+            elif consec_days < 0:
+                inst_consec_text = f'<span class="value-key" style="font-size:1.0rem; color:#f44336; font-weight:bold; margin-left:8px;">(連賣 {abs(consec_days)} 天)</span>'
+            else:
+                inst_consec_text = ""
+            
             # 狀態徽章
             badge_html = ""
             if row["is_long_lock"]:
@@ -611,7 +653,7 @@ if not df_strategy.empty:
                 <div class="elder-card-section">
                     <div class="section-label">🚀 法人佈局結構 (佔交易量比)</div>
                     <div class="section-values">
-                        <span>20日法人比：<span class="value-normal">{ratio_20d:.2f}%</span></span>
+                        <span>20日法人比：<span class="value-normal">{ratio_20d:.2f}%</span>{inst_consec_text}</span>
                         <span>60日法人比：<span class="value-normal">{ratio_60d:.2f}%</span></span>
                     </div>
                 </div>

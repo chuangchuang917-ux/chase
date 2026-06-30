@@ -179,6 +179,35 @@ def get_nearest_trading_date(target_date_str):
             conn.close()
     return target_date_str
 
+def get_local_inst_consec_days(stock_id, target_date):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.execute(
+            "SELECT (foreign_buy_shares + trust_buy_shares) FROM daily_chips WHERE stock_id = ? AND date <= ? ORDER BY date DESC LIMIT 30",
+            (stock_id, target_date)
+        )
+        rows = [r[0] for r in cursor.fetchall()]
+        conn.close()
+        
+        if not rows:
+            return 0
+        
+        first_val = rows[0]
+        if abs(first_val) < 0.00001:
+            return 0
+            
+        sign = 1 if first_val > 0 else -1
+        consec = 0
+        for val in rows:
+            val_sign = 1 if val > 0.00001 else (-1 if val < -0.00001 else 0)
+            if val_sign == sign:
+                consec += sign
+            else:
+                break
+        return consec
+    except Exception:
+        return 0
+
 # ==========================================
 # 1. 取得資料庫最新日期作為預設日期與股票名單
 # ==========================================
@@ -996,9 +1025,7 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                 with col1:
                     st.metric(f"收盤價 ({selected_date_str.replace('-', '/')})", f"{row_info['close']:.2f} 元")
                 with col2:
-                    st.metric("60日漲跌幅", f"{row_info['price_change_60d']:.2f}%", 
-                              delta=f"{row_info['price_change_60d']:.2f}%" if row_info['price_change_60d'] != 0 else None,
-                              delta_color="inverse")
+                    st.metric("60日漲跌幅", f"{row_info['price_change_60d']:.2f}%")
                 with col3:
                     st.metric("當日成交量", f"{row_info['volume']:,.0f} 張")
                 with col4:
@@ -1010,7 +1037,19 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
             with st.container(border=True):
                 col9, col10, col11, col12 = st.columns(4)
                 with col9:
-                    st.metric("20日法人佔量比", f"{row_info['ratio_foreign_trust_20d']:.2f}%")
+                    if USE_SUPABASE:
+                        consec_days = int(row_info.get("inst_consec_days", 0)) if pd.notna(row_info.get("inst_consec_days")) else 0
+                    else:
+                        consec_days = get_local_inst_consec_days(selected_stock_id, selected_date_str)
+                    
+                    if consec_days > 0:
+                        inst_delta = f"連買 {consec_days} 天"
+                    elif consec_days < 0:
+                        inst_delta = f"-連賣 {abs(consec_days)} 天"
+                    else:
+                        inst_delta = None
+                    
+                    st.metric("20日法人佔量比", f"{row_info['ratio_foreign_trust_20d']:.2f}%", delta=inst_delta)
                 with col10:
                     st.metric("20日買超股本比", f"{row_info['ratio_foreign_trust_20d_capital']:.4f}%")
                 with col11:
