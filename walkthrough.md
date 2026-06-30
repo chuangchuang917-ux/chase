@@ -898,4 +898,22 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   2. **保留預設主題樣式**：保留預設為 `dark`（深色模式）的系統設定，使得系統樣式仍能完美符合炫酷深藍色的介面外觀，避免介面混亂。
   3. **自動部署推播**：將 `app.py` 與 `walkthrough.md` 的修改 commit 並 push 至 GitHub，等待 Streamlit Cloud 自動重新建置生效。
 
+---
+
+## 42. 回溯上櫃 (TPEx) 股歷史籌碼資料並同步至 Supabase (2026-06-30)
+
+* **需求描述**：
+  修補 2026-06-19 以前上櫃股缺失的法人買賣超與信用交易歷史數據，並將更新後的結果同步至 Supabase。
+
+* **所做變更與實作**：
+  1. **建立專屬回溯腳本**：撰寫並執行了 [backfill_tpex_finmind.py](file:///c:/Users/alber/Desktop/antigravity/chase/backfill_tpex_finmind.py)，該腳本動態輪轉調用 3 組 FinMind API Token 進行資料抓取與轉換。
+  2. **本地回溯進度**：
+     - 已成功抓取並更新共 **304** 檔上櫃股的歷史資料（如 茂訊 `1240`、德勝 `8048`），順利填入 `foreign_buy_shares`、`trust_buy_shares`、`margin_purchase_balance`、`short_sale_balance` 等欄位。
+     - 其餘 **590** 檔上櫃股因為 3 組 API 金鑰皆觸發日額度上限（HTTP 402），程式已安全退出，將待額度重置後再繼續補齊。
+  3. **Supabase 全量同步與重算**：已啟動 `sync_to_supabase_bulk.py` 重新計算這些股票的所有滾動策略指標，並正將完整的 272,696 筆資料 upsert 上傳同步至 Supabase 中。
+
+* **驗證結果**：
+  - 經向 Supabase 直接查詢已處理股票（如 1240），在 2025-12-01 等日期的 `ratio_foreign_trust_20d` 等法人佔量比已正確更新為 `-29.76%` 等非零數值，融資餘額等數據也正確上架。
+
+
 
