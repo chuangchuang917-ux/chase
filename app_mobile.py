@@ -610,9 +610,9 @@ if not df_strategy.empty:
                 consec_days = get_local_inst_consec_days(stock_id, selected_date_str)
                 
             if consec_days > 0:
-                inst_consec_text = f'<span class="value-key" style="font-size:1.0rem; color:#f44336; font-weight:bold; margin-left:8px;">(連買 {consec_days} 天)</span>'
+                inst_consec_text = f'<span class="value-highlight-up" style="font-size:1.0rem; font-weight:bold; margin-left:8px;">(連買 {consec_days} 天)</span>'
             elif consec_days < 0:
-                inst_consec_text = f'<span class="value-key" style="font-size:1.0rem; color:#4caf50; font-weight:bold; margin-left:8px;">(連賣 {abs(consec_days)} 天)</span>'
+                inst_consec_text = f'<span class="value-highlight-down" style="font-size:1.0rem; font-weight:bold; margin-left:8px;">(連賣 {abs(consec_days)} 天)</span>'
             else:
                 inst_consec_text = ""
             
