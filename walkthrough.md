@@ -823,3 +823,26 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   - **自動化驗證錄影**：[verify_updated_june_26.webp](file:///C:/Users/alber/.gemini/antigravity-ide/brain/1db8296a-c75c-4b1f-a1a2-6109528671fb/verify_updated_june_26_1782800854536.webp)
   - **篩選結果截圖**：[strategy_results_loaded.png](file:///C:/Users/alber/.gemini/antigravity-ide/brain/1db8296a-c75c-4b1f-a1a2-6109528671fb/strategy_results_loaded_1782801067905.png)
 
+---
+
+## 38. 修復 6/29 資料自動更新時差延遲與補登 (2026-06-30)
+
+* **問題描述**：
+  使用者反應 Supabase 上的 6/29 (週一) 選股資料沒有自動更新，網頁無法查詢 6/29。
+
+* **根因分析**：
+  1. **GitHub Actions 伺服器時差**：在 GitHub Workflows [daily_sync.yml](file:///.github/workflows/daily_sync.yml) 中，Cron 設定為每日 UTC 18:00 (即台灣時間隔日 02:00) 執行。
+  2. **時區判定錯誤**：舊版 [daily_update.py](file:///c:/Users/alber/Desktop/antigravity/chase/daily_update.py) 使用了 `datetime.date.today()`。這導致當 GitHub Actions 於台灣時間週二 02:00 (即 UTC 週一 18:00) 執行時，抓取到的 `today` 是 UTC 週一日期（即 6/29）。而計算「上一個交易日」時又回退 1 日，退到了 **6/26 (週五)**。因此每逢更新，皆會出現 **24 小時的更新時差延遲** (週一的資料在週二清晨執行時被判定為週五，導致週一資料延至週三清晨才更新)。
+
+* **解決方案與變更**：
+  1. **修正時區代碼**：修改 [daily_update.py](file:///c:/Users/alber/Desktop/antigravity/chase/daily_update.py#L44-L56)，改為以台灣時間 (UTC+8) 作為 `today` 的基礎日期，以完全消除 GitHub Actions 與台灣的時差偏移。
+  2. **補登與上傳 6/29 資料**：
+     - 在本地執行 `daily_update.py` 爬取並寫入本地 SQLite。
+     - 呼叫 `python sync_single_date.py 2026-06-29` 單日同步指令，成功將 6/29 的 `1,970` 筆計算結果更新至 Supabase。
+  3. **部署與提交**：將修正後的代碼 commit 並 push 到 GitHub master 分支，未來 GitHub Actions 將正常在每日清晨 02:00 同步前一日（當天剛收盤完）的資料。
+
+* **驗證結果**：
+  - 成功向 Supabase 查詢 6/29 選股資料，返回 1,970 筆完整紀錄。
+  - 行動版網頁已可正常點選 **`2026-06-29`** 並正常渲染個股籌碼卡片。
+
+
