@@ -1014,9 +1014,28 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 * **驗證結果**：
   - 本地及線上自動重新部署後，打開手機版網頁，「📅 選擇分析日期」下拉選單已順利還原並顯示包含 `2026-06-29`、`2026-06-26`、`2026-06-25` ...等在內的全量歷史交易日期，所有功能與個股診斷運算完全恢復正常。
 
+---
 
+## 49. 20日法人比新增連續買賣天數 (Delta) 與 60日漲跌幅移除 Delta (2026-07-01)
 
+* **需求描述**：
+  1. 在「20日法人佔量比」的 KPI 卡片上新增 Delta 指標，以顯示法人連續買進或賣出的天數（如 `連買 3 天` 或 `連賣 5 天`）。
+  2. 移除「60日漲跌幅」卡片上的 Delta 指標。
 
+* **所做變更與實作**：
+  1. **本地 SQLite 實時計算**：
+     - 在 [app.py](file:///c:/Users/chuang/Desktop/antigravity/chase/app.py) 與 [app_mobile.py](file:///c:/Users/chuang/Desktop/antigravity/chase/app_mobile.py) 中新增 `get_local_inst_consec_days()` 輔助函式。
+     - 此函式可自本地 SQLite 載入指定個股最近 30 日的法人買賣超數據，實時計算出最新截止日期的連續買賣天數（連買為正值，連賣為負值）。
+  2. **Supabase 欄位支持與容錯（雙軌機制）**：
+     - 修改 [sync_to_supabase_bulk.py](file:///c:/Users/chuang/Desktop/antigravity/chase/sync_to_supabase_bulk.py) 與 [sync_single_date.py](file:///c:/Users/chuang/Desktop/antigravity/chase/sync_single_date.py)，在大量同步時亦計算該欄位 `inst_consec_days`。
+     - **自癒容錯機制**：在批次上傳至 Supabase 時，若因雲端資料庫尚未執行 schema 變更（缺少 `inst_consec_days` 欄位）導致失敗，程式會**自動排除該欄位並重試上傳**，完全不會阻礙每日自動排程更新與同步。
+  3. **介面更新**：
+     - **電腦版 (desktop)**：
+       - 20日法人比：新增 `delta`，連買顯示為綠色（例如 `連買 5 天`），連賣顯示為紅色（例如 `-連賣 3 天`）。
+       - 60日漲跌幅：移除 `delta` 與 `delta_color` 參數。
+     - **手機版 (mobile)**：
+       - 在「20日法人比」後方以精緻綠/紅色字體標註 `(連買 X 天)` 或 `(連賣 Y 天)`，保持窄版面美觀。
 
-
-
+* **驗證結果**：
+  - 本地以 `2330`（台積電）於 `2026-06-29` 進行測試，20日法人比成功顯示 **`連賣 5 天`**（紅色）；以 `2409`（群創）進行測試，成功顯示 **`連買 1 天`**（綠色），且 60日漲跌幅的 Delta 數值已成功消失。
+  - 將代碼 commit 並 push 到 GitHub 觸發 Streamlit Cloud 自動重新部署。
