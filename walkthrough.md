@@ -941,6 +941,36 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   1. **配置更改**：將 `.streamlit/config.toml` 中的 `toolbarMode = "minimal"` 更改為 `toolbarMode = "hidden"`。
   2. **同步與部署**：已與 GitHub 倉庫同步拉取並更新。由於本專案與 Streamlit Community Cloud 連接，此配置更改已自動觸發重新部署上線。
 
+---
+
+## 45. 工作交接與未完任務清單 (2026-06-30)
+
+此章節記錄當前系統狀態，以便下一個 Agent 能接續完成未完工作。
+
+### 📋 下一個 Agent 的待辦清單 (TODOs)
+1. **[ ] 待額度重置後，重啟上櫃歷史資料回溯**：
+   - 額度重置時間：預計為明日 (2026-07-01)。
+   - 重啟回溯指令：在 `chase/` 目錄下執行以下命令：
+     ```bash
+     python -u backfill_tpex_finmind.py
+     ```
+   - 目的：補齊最後 **302** 檔尚未完成回溯的上櫃股歷史資料。當前腳本會自動繼承斷點（只挑選 `daily_chips` 中法人買賣超為 `0.0` 且有交易量的上櫃股進行補載）。
+2. **[ ] 執行 Supabase 資料庫指標重算與同步**：
+   - 指令：在 `chase/` 目錄下執行以下命令進行全量指標更新：
+     ```bash
+     python -u sync_to_supabase_bulk.py
+     ```
+   - 目的：將新補齊的歷史欄位重新計算為 20日/60日 等策略指標，並同步 upsert 上傳至 Supabase 雲端資料庫。
+3. **[ ] 線上網頁測試與驗證**：
+   - 訪問：[https://chase-stock-radar.streamlit.app/](https://chase-stock-radar.streamlit.app/)
+   - 檢查：隨機挑選 1-2 檔上櫃股並切換至 `2026-04-14` 前的歷史日期，確認指標不再全為 `0.00%`。
+
+### ⚙️ 當前系統狀態
+- **已完成回溯**：**592 檔** 上櫃股歷史資料（外資、投信買賣超與信用交易）已成功修復補件。
+- **最新同步**：第二批數據的同步上載腳本正在執行中（任務 ID：`task-704`）。
+- **FinMind 金鑰**：金鑰已全數更新為最新的 Token，但當日额度已用罄（status 402），請等待額度重置後再跑回溯。
+
+
 
 
 
