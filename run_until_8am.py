@@ -22,7 +22,7 @@ def finmind_ok():
         r = requests.get("https://api.finmindtrade.com/api/v4/data", params={
             "dataset": "TaiwanStockPrice", "data_id": "2330",
             "start_date": "2026-06-20", "end_date": "2026-06-23",
-            "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiYWxiZXJ0MDkxNyIsImVtYWlsIjoiYWxiZXJ0MDkxN0BnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowfQ.NigTcrEmzoH4Ntj3RDzfcRCT2a397hsERMydNZuy05c"
+            "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiYWxiZXJ0MDkxNyIsImVtYWlsIjoiYWxiZXJ0MDkxN0BnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowLCJleHAiOjE3ODM0MTcwMjl9.snTeoVkjJqMb7m655PA_lA8yxPgdSE24Sfm0A9n-jxU"
         }, timeout=10)
         return r.json().get("msg") == "success"
     except:

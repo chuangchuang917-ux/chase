@@ -62,9 +62,9 @@ if response.status_code == 200:
 ## 🚀 3. FinMind API 資源
 FinMind 提供多元的台灣股票、權證、期權等金融數據。
 
-*   **API 授權金鑰 (Primary Token)**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiYWxiZXJ0MDkxNyIsImVtYWlsIjoiYWxiZXJ0MDkxN0BnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowfQ.NigTcrEmzoH4Ntj3RDzfcRCT2a397hsERMydNZuy05c`
-*   **API 授權金鑰 (Fallback Token)**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5nY2h1YW5nOTE3QGdtYWlsLmNvbSIsImVtYWlsIjoiY2h1YW5nY2h1YW5nOTE3QGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjF9.SlWtLQstQJGUCVKl42NxUG8wfqNt6tWD-reyP3xcyBY`
-*   **API 授權金鑰 (Third Token)**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5na3VuNjlAZ21haWwuY29tIiwiZW1haWwiOiJjaHVhbmdrdW42OUBnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowfQ.HsULDchhy4vlVfoKipk-JEjDMv34OndMN8M4SVXEp3w`
+*   **API 授權金鑰 (Primary Token)**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiYWxiZXJ0MDkxNyIsImVtYWlsIjoiYWxiZXJ0MDkxN0BnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowLCJleHAiOjE3ODM0MTcwMjl9.snTeoVkjJqMb7m655PA_lA8yxPgdSE24Sfm0A9n-jxU`
+*   **API 授權金鑰 (Fallback Token)**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5nY2h1YW5nOTE3QGdtYWlsLmNvbSIsImVtYWlsIjoiY2h1YW5nY2h1YW5nOTE3QGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjIsImV4cCI6MTc4MzQxNzA0M30.IKH0tshNaAX_OAfXnFlzrygANbbGyo_KAs_M2JlO_tg`
+*   **API 授權金鑰 (Third Token)**: `eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5na3VuNjlAZ21haWwuY29tIiwiZW1haWwiOiJjaHVhbmdrdW42OUBnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowLCJleHAiOjE3ODM0MTcyMDF9.dmGveEOR8lEXdA2Wibx8DcOYoHrVWBc3X2w0s1RPQSU`
 *   **官方網站**: [https://finmindtrade.com/](https://finmindtrade.com/)
 *   **Python SDK 對接範例**:
 ```python

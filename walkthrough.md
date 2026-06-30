@@ -915,5 +915,21 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 * **驗證結果**：
   - 經向 Supabase 直接查詢已處理股票（如 1240），在 2025-12-01 等日期的 `ratio_foreign_trust_20d` 等法人佔量比已正確更新為 `-29.76%` 等非零數值，融資餘額等數據也正確上架。
 
+---
+
+## 43. 更新三組 FinMind API 金鑰並重啟回溯任務 (2026-06-30)
+
+* **需求描述**：
+  更新全專案所有檔案中的 3 組 FinMind API 金鑰為使用者提供的新 Token，並重啟剩餘 590 檔上櫃股的歷史回溯下載任務。
+
+* **所做變更與實作**：
+  1. **金鑰正確性測試**：在更新前，先以指令調用 FinMind 接口驗證 3 組新金鑰，全數確認返回 `status: 200` 與 `success` 數據完備。
+  2. **全面更新全域金鑰**：
+     - 修改 [api_sources.md](file:///c:/Users/alber/Desktop/antigravity/chase/api_sources.md) 以更新開發資源金鑰文件。
+     - 修改 `backfill_tpex_finmind.py`、`backfill_finmind.py`、`compare_100_stocks_120d.py`、`run_until_8am.py`、`update_historical_margin.py`、`verify_foreign_data.py` 和 `verify_margin_data.py` 等所有引用舊 Token 的專案 Python 檔案，徹底替換為新 Token。
+  3. **重啟背景回溯任務**：重新執行 [backfill_tpex_finmind.py](file:///c:/Users/alber/Desktop/antigravity/chase/backfill_tpex_finmind.py)（任務 ID：`task-648`），順利繼承斷點，針對剩下未補齊的 590 檔上櫃股進行法人與信用交易的補載。
+  4. **提交程式與文檔變更**：將修改後的檔案 commit 並 push 至 GitHub 倉庫。
+
+
 
 
