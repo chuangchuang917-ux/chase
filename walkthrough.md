@@ -930,6 +930,18 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   3. **重啟背景回溯任務**：重新執行 [backfill_tpex_finmind.py](file:///c:/Users/alber/Desktop/antigravity/chase/backfill_tpex_finmind.py)（任務 ID：`task-648`），順利繼承斷點，針對剩下未補齊的 590 檔上櫃股進行法人與信用交易的補載。
   4. **提交程式與文檔變更**：將修改後的檔案 commit 並 push 至 GitHub 倉庫。
 
+---
+
+## 44. 隱藏 Streamlit 工具列與同步部署 (2026-06-30)
+
+* **需求描述**：
+  在部署環境中將 Streamlit 頂部的工具列與選單隱藏，提供更乾淨的行動/桌機版外觀。
+
+* **所做變更與實作**：
+  1. **配置更改**：將 `.streamlit/config.toml` 中的 `toolbarMode = "minimal"` 更改為 `toolbarMode = "hidden"`。
+  2. **同步與部署**：已與 GitHub 倉庫同步拉取並更新。由於本專案與 Streamlit Community Cloud 連接，此配置更改已自動觸發重新部署上線。
+
+
 
 
 
