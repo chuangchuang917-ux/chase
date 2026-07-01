@@ -15,8 +15,11 @@ import requests
 
 # ─── 設定 ────────────────────────────────────────────────
 TARGET_DATE  = sys.argv[1] if len(sys.argv) > 1 else "2026-06-24"
-SUPABASE_URL = "https://xjalllcvwbgnxwcruhzz.supabase.co"
-SUPABASE_KEY = "sb_publishable_4jXrUcO-DXpwGu4QklflXg_v7w4IYNt"
+from dotenv import load_dotenv
+load_dotenv()
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xjalllcvwbgnxwcruhzz.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_4jXrUcO-DXpwGu4QklflXg_v7w4IYNt")
 DB_PATH      = os.path.join(os.path.dirname(os.path.abspath(__file__)), "taiwan_stock.db")
 TABLE        = "chase_strategy_results"
 BATCH_SIZE   = 500

@@ -1039,3 +1039,21 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 * **驗證結果**：
   - 本地以 `2330`（台積電）於 `2026-06-29` 進行測試，20日法人比成功顯示 **`連賣 5 天`**（紅色）；以 `2409`（群創）進行測試，成功顯示 **`連買 1 天`**（綠色），且 60日漲跌幅的 Delta 數值已成功消失。
   - 將代碼 commit 並 push 到 GitHub 觸發 Streamlit Cloud 自動重新部署。
+
+---
+
+## 50. Supabase RLS 安全性漏洞修復與金鑰環境變數改造 (2026-07-01)
+
+* **背景描述**：
+  使用者收到 Supabase 官方安全警告信，指出 LOHAS 專案資料表 `public.daily_prices` 暴露於 Public schema 但未啟用 RLS (Row Level Security)，允許任何外部人士透過 Publishable (anon) 金鑰進行讀寫與刪除，產生安全漏洞。
+
+* **所做變更與實作**：
+  1. **LOHAS 安全防護評估**：
+     - 確認 LOHAS 後端 (SQLAlchemy) 連線是使用 direct PostgreSQL `DATABASE_URL` (Superuser 權限)，故開啟 RLS 並不會阻礙後端進行讀寫更新。
+  2. **Chase 專案同步腳本改造**：
+     - Chase 專案過去使用 Publishable (anon) 金鑰對 Supabase 進行 REST API 寫入，若對 Chase 資料表啟用 RLS，同步腳本會失敗。
+     - **引入 `.env` 與環境變數支援**：修改 [sync_to_supabase.py](file:///c:/Users/alber/Desktop/antigravity/chase/sync_to_supabase.py)、[sync_to_supabase_bulk.py](file:///c:/Users/alber/Desktop/antigravity/chase/sync_to_supabase_bulk.py) 與 [sync_single_date.py](file:///c:/Users/alber/Desktop/antigravity/chase/sync_single_date.py)，使用 `dotenv` 套件載入 `.env` 環境變數中的 `SUPABASE_URL` 與 `SUPABASE_KEY`，若環境變數中無此值，則 fallback 回原本預設的 publishable (anon) 金鑰。
+     - **建立本機 `.env` 金鑰配置**：在本機建立 `.env` 檔案（已列入 `.gitignore` 確保不會流出），寫入使用者提供的 `service_role` (Secret) 金鑰：`sb_secret_GqW04...（已加密遮蔽）`。
+  3. **測試與驗證**：
+     - 於本機執行 `python sync_single_date.py 2026-06-29` 測試，在有偵測到本地 Secret Key 的情況下，成功在 12.8 秒內完成 1,970 筆資料的 Upsert 寫入，驗證讀寫通暢。
+

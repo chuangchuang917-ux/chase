@@ -13,8 +13,11 @@ sys.stdout.reconfigure(encoding='utf-8')
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from strategy import run_chip_strategy
 
-SUPABASE_URL = "https://xjalllcvwbgnxwcruhzz.supabase.co"
-SUPABASE_KEY = "sb_publishable_4jXrUcO-DXpwGu4QklflXg_v7w4IYNt"
+from dotenv import load_dotenv
+load_dotenv()
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xjalllcvwbgnxwcruhzz.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_4jXrUcO-DXpwGu4QklflXg_v7w4IYNt")
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "taiwan_stock.db")
 
 HEADERS = {
