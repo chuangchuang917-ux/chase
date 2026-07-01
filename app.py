@@ -265,6 +265,7 @@ def add_growth_metrics(df, target_date, use_supabase=True, db_path=None):
         return df
     
     df = df.copy()
+    df["stock_id"] = df["stock_id"].astype(str)
     df["holder_growth_pct"] = 0.0
     
     if use_supabase:
@@ -277,7 +278,7 @@ def add_growth_metrics(df, target_date, use_supabase=True, db_path=None):
         df_hist = pd.DataFrame()
         try:
             records = []
-            chunk_size = 50
+            chunk_size = 10
             for i in range(0, len(stock_ids), chunk_size):
                 chunk = stock_ids[i:i+chunk_size]
                 stock_in_query = ",".join([f'"{sid}"' for sid in chunk])
@@ -287,6 +288,7 @@ def add_growth_metrics(df, target_date, use_supabase=True, db_path=None):
                     records.extend(r.json())
             if records:
                 df_hist = pd.DataFrame(records)
+                df_hist["stock_id"] = df_hist["stock_id"].astype(str)
                 df_hist["holder_over_1000"] = pd.to_numeric(df_hist["holder_over_1000"], errors='coerce').fillna(0.0)
                 df_hist["date_dt"] = pd.to_datetime(df_hist["date"])
                 df_hist["iso_year"] = df_hist["date_dt"].dt.isocalendar().year
@@ -298,6 +300,8 @@ def add_growth_metrics(df, target_date, use_supabase=True, db_path=None):
             pct_dict = {}
             for sid in stock_ids:
                 df_sid = df_hist[df_hist["stock_id"] == sid]
+                if df_sid.empty:
+                    continue
                 df_sid_weekly = df_sid.groupby(["iso_year", "iso_week"]).first().reset_index()
                 df_sid_weekly = df_sid_weekly.sort_values(by="date", ascending=False)
                 
