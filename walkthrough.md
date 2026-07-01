@@ -1057,3 +1057,31 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   3. **測試與驗證**：
      - 於本機執行 `python sync_single_date.py 2026-06-29` 測試，在有偵測到本地 Secret Key 的情況下，成功在 12.8 秒內完成 1,970 筆資料的 Upsert 寫入，驗證讀寫通暢。
 
+---
+
+## 51. 修正 2026-06-30 資料不完整與千張大戶持股比為 0 的問題 (2026-07-01)
+
+* **問題描述**：
+  使用者反應 2026-06-30 更新之資料不完全（僅有 50 筆），且千張大戶持股比及 400張大戶持股比欄位全數為 `0`。
+
+* **根因分析**：
+  1. **FinMind API Token 逾期失效**：
+     - 經測試，原本寫在 [crawler.py](file:///c:/Users/alber/Desktop/antigravity/chase/crawler.py) 第 13 行的 `API_TOKEN`（`chuangchuang917` 帳戶）已經過期失效（FinMind 回報 Token is illegal）。
+     - 由於 Token 失效，呼叫 `get_active_stock_list()` 時失敗，觸發了 Crawler 的 Fallback 機制，使目標股票名單被限縮在 `TAIWAN_50_STOCKS` (0050 的 50 檔成分股)。這導致無論在 GitHub Actions 還是本地運行，都只抓取了這 50 檔個股。
+  2. **集保大戶資料未於排程更新**：
+     - 每日同步排程 [daily_update.py](file:///c:/Users/alber/Desktop/antigravity/chase/daily_update.py) 僅執行了日線爬蟲，並未呼叫週集保資料的爬蟲，且 GitHub Actions 運行環境中的 SQLite 快取沒有最新一週的 `weekly_shareholders` 資料，導致經由 `pd.merge_asof` 合併後的千張與 400張大戶佔比皆被填為 `0`。
+
+* **所做變更與實作**：
+  1. **替換有效 Token**：
+     - 將 [crawler.py](file:///c:/Users/alber/Desktop/antigravity/chase/crawler.py) 中的預設 `API_TOKEN` 替換為 `api_sources.md` 內已驗證有效的 Primary Token。
+  2. **日更新流程納入週資料 (Self-healing)**：
+     - 修改 [daily_update.py](file:///c:/Users/alber/Desktop/antigravity/chase/daily_update.py)，在步驟 1 之後新增 **[STEP 1.5]**，調用 `fetch_and_save_weekly_data` 從 TDCC 自動下載最新的大戶集保資料，實現每日自動檢查並與最新週資料同步的自我修復機制。
+  3. **重新補正歷史數據**：
+     - 於本機重新執行日報爬蟲：`python -c "import crawler; crawler.fetch_and_save_data('2026-06-30', '2026-06-30'); crawler.fetch_and_save_weekly_data('2026-06-30', '2026-06-30')"`，成功補齊 2026-06-30 全市場共 **1,971 檔** 股票的交易與大戶資料。
+     - 執行同步：`python sync_single_date.py 2026-06-30`，將這 1,971 筆包含千張大戶持股比（非零值）的正確數據重新 upsert 上傳至 Supabase。
+
+* **驗證結果**：
+  - 前端網頁經由自動化瀏覽器子代理驗證，選擇分析日期 `2026-06-30` 後，個股千張大戶持股比已恢復非零的正常數值（例如：預設個股 `2357 華碩` 顯示為 `63.05%`），全市場資料完全恢復正常。
+  - 將代碼 commit 並 push 到 GitHub，Streamlit Cloud 已自動拉取最新版程式。
+
+

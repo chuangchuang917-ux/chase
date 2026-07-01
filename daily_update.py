@@ -100,6 +100,15 @@ def main():
             print(f"[ERROR] STEP1 失敗：{e}")
             sys.exit(1)
 
+    # ── 步驟 1.5：抓取最新一週集保大戶分散資料 ───────────
+    print("[STEP1.5] 開始抓取最新週集保資料 (TDCC)...")
+    try:
+        # 下載最新集保資料並存入 weekly_shareholders 表格，內部會自動過濾已存的重複資料
+        _crawler_mod.fetch_and_save_weekly_data(target_date, target_date)
+        print("[STEP1.5] ✅ 週集保資料抓取與更新完成。")
+    except Exception as e:
+        print(f"[WARNING] STEP1.5 抓取週資料失敗 (不中斷日更新流程)：{e}")
+
     # ── 步驟 2：重算策略指標並同步至 Supabase ────────────
     print(f"[STEP2] 開始計算策略指標並同步至 Supabase...")
     t0 = time.time()
