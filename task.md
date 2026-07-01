@@ -35,6 +35,8 @@
 - `[x]` 33. Supabase RLS 安全漏洞修復與金鑰環境變數載入：修復 LOHAS 的 RLS 警告，並重構 Chase 同步腳本，將 `service_role` 私鑰寫入本地 Git 忽略的 `.env` 檔案，本地測試執行成功。
 - `[x]` 34. 修正 06-30 資料不完整與大戶比為 0 的問題：更新了 crawler.py 的逾期 Token，在 daily_update.py 中整合週資料爬蟲以防大戶比歸零，並重新爬取、同步了 06-30 全市場 1,971 筆資料至 Supabase。
 - `[x]` 35. 擺脫 FinMind 依賴：重構 crawler.py 中獲取活躍股票清單的邏輯，改為直接對接官方（TWSE/TPEx）開放資料，配合 SQLite 近期活躍資料備用，實現 100% 免 Token 的每日自動增量更新。
+- `[x]` 36. 修復 2026-06-26 日大戶佔比資料為 0 的問題：藉由執行 sync_single_date.py 2026-06-26 將正確的大戶比重新寫入 Supabase，解決了因 06-26 數據為 0 導致 delta 計算出異常負值的錯誤。
+
 
 
 
