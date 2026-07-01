@@ -58,6 +58,7 @@ DEFAULT_DISPLAY_ORDER = [
     "ratio_foreign_trust_20d", "ratio_foreign_trust_20d_capital",
     "ratio_foreign_trust_60d", "ratio_foreign_trust_60d_capital",
     "holder_over_1000", "holder_over_400",
+    "holder_growth_weeks", "holder_growth_pct",
     "margin_purchase_change_20d", "short_sale_change_20d"
 ]
 
@@ -73,6 +74,8 @@ CHINESE_COLUMNS = {
     "ratio_foreign_trust_60d_capital": "60日買超股本比",
     "holder_over_1000": "千張大戶持股比",
     "holder_over_400": "400張以上大戶比",
+    "holder_growth_weeks": "大戶連買週數",
+    "holder_growth_pct": "大戶累積買超%",
     "margin_purchase_change_20d": "20日融資變化",
     "short_sale_change_20d": "20日融券變化"
 }
@@ -257,6 +260,113 @@ def get_db_dates_info():
         finally:
             conn.close()
 
+def add_growth_metrics(df, target_date, use_supabase=True, db_path=None):
+    if df.empty:
+        return df
+    
+    df = df.copy()
+    df["holder_growth_pct"] = 0.0
+    
+    if use_supabase:
+        # Supabase 模式下已包含 'holder_growth_weeks'
+        candidates = df[df["holder_growth_weeks"] > 0]
+        if candidates.empty:
+            return df
+        
+        stock_ids = candidates["stock_id"].tolist()
+        df_hist = pd.DataFrame()
+        try:
+            records = []
+            chunk_size = 50
+            for i in range(0, len(stock_ids), chunk_size):
+                chunk = stock_ids[i:i+chunk_size]
+                stock_in_query = ",".join([f'"{sid}"' for sid in chunk])
+                url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date,stock_id,holder_over_1000,holder_over_400&stock_id=in.({stock_in_query})&date=lte.{target_date}&order=date.desc"
+                r = requests.get(url, headers=SUPABASE_HEADERS, timeout=15)
+                if r.status_code in (200, 206):
+                    records.extend(r.json())
+            if records:
+                df_hist = pd.DataFrame(records)
+                df_hist["holder_over_1000"] = pd.to_numeric(df_hist["holder_over_1000"], errors='coerce').fillna(0.0)
+                df_hist["date_dt"] = pd.to_datetime(df_hist["date"])
+                df_hist["iso_year"] = df_hist["date_dt"].dt.isocalendar().year
+                df_hist["iso_week"] = df_hist["date_dt"].dt.isocalendar().week
+        except Exception as e:
+            print(f"[WARNING] 無法自 Supabase 讀取大戶週歷史: {e}")
+            
+        if not df_hist.empty:
+            pct_dict = {}
+            for sid in stock_ids:
+                df_sid = df_hist[df_hist["stock_id"] == sid]
+                df_sid_weekly = df_sid.groupby(["iso_year", "iso_week"]).first().reset_index()
+                df_sid_weekly = df_sid_weekly.sort_values(by="date", ascending=False)
+                
+                # 集保未完結週排除過濾
+                HOLIDAY_THURSDAYS = {"2026-06-18", "2026-04-30", "2026-02-12", "2025-10-09"}
+                if not df_sid_weekly.empty:
+                    latest_row = df_sid_weekly.iloc[0]
+                    if latest_row["date"] == target_date:
+                        latest_date = pd.to_datetime(target_date)
+                        is_completed = (latest_date.weekday() == 4) or (target_date in HOLIDAY_THURSDAYS)
+                        if not is_completed:
+                            df_sid_weekly = df_sid_weekly.iloc[1:]
+                
+                v_1000 = df_sid_weekly["holder_over_1000"].tolist()
+                W = int(df.loc[df["stock_id"] == sid, "holder_growth_weeks"].values[0])
+                if len(v_1000) > W and W > 0:
+                    pct_diff = v_1000[0] - v_1000[W]
+                    pct_dict[sid] = round(pct_diff, 2)
+            df["holder_growth_pct"] = df["stock_id"].map(pct_dict).fillna(0.0)
+            
+    else:
+        # SQLite 模式下需自行計算大戶成長週數與累積增幅
+        stock_ids = df["stock_id"].tolist()
+        try:
+            conn = sqlite3.connect(db_path)
+            placeholders = ",".join(["?"] * len(stock_ids))
+            df_hist = pd.read_sql_query(
+                f"SELECT date, stock_id, holder_over_1000 FROM weekly_shareholders WHERE stock_id IN ({placeholders}) AND date <= ? ORDER BY date DESC",
+                conn, params=(*stock_ids, target_date)
+            )
+            conn.close()
+            
+            if not df_hist.empty:
+                df_hist["holder_over_1000"] = pd.to_numeric(df_hist["holder_over_1000"], errors='coerce').fillna(0.0)
+                weeks_dict = {}
+                pct_dict = {}
+                
+                for sid in stock_ids:
+                    df_sid = df_hist[df_hist["stock_id"] == sid]
+                    v_1000 = df_sid["holder_over_1000"].tolist()
+                    
+                    consec = 0
+                    if len(v_1000) >= 2:
+                        diff = v_1000[0] - v_1000[1]
+                        if diff > 0.00001:
+                            for i in range(len(v_1000) - 1):
+                                if v_1000[i] > v_1000[i+1]:
+                                    consec += 1
+                                else:
+                                    break
+                            pct_diff = v_1000[0] - v_1000[consec]
+                            pct_dict[sid] = round(pct_diff, 2)
+                        else:
+                            consec = 0
+                            pct_dict[sid] = 0.0
+                    weeks_dict[sid] = consec
+                
+                df["holder_growth_weeks"] = df["stock_id"].map(weeks_dict).fillna(0).astype(int)
+                df["holder_growth_pct"] = df["stock_id"].map(pct_dict).fillna(0.0)
+            else:
+                df["holder_growth_weeks"] = 0
+                df["holder_growth_pct"] = 0.0
+        except Exception as e:
+            print(f"[WARNING] 無法自 SQLite 讀取大戶週歷史: {e}")
+            df["holder_growth_weeks"] = 0
+            df["holder_growth_pct"] = 0.0
+            
+    return df
+
 def cached_run_chip_strategy(target_date, weekly_trend_weeks=0, min_trade_value=0, db_path=DB_PATH):
     if USE_SUPABASE:
         try:
@@ -268,7 +378,7 @@ def cached_run_chip_strategy(target_date, weekly_trend_weeks=0, min_trade_value=
                 req_headers["Range"] = f"{offset}-{offset + limit - 1}"
                 url = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?date=eq.{target_date}"
                 r = requests.get(url, headers=req_headers, timeout=15)
-                if r.status_code != 200:
+                if r.status_code not in (200, 206):
                     break
                 data = r.json()
                 if not data:
@@ -302,12 +412,17 @@ def cached_run_chip_strategy(target_date, weekly_trend_weeks=0, min_trade_value=
             if weekly_trend_weeks > 0:
                 df = df[df["holder_growth_weeks"] >= weekly_trend_weeks]
                 
+            # 計算大戶累積買超比例
+            df = add_growth_metrics(df, target_date, use_supabase=True, db_path=db_path)
             return df
         except Exception as e:
             st.error(f"從 Supabase 取得策略選股結果失敗: {e}")
             return pd.DataFrame()
     else:
-        return run_chip_strategy(target_date, weekly_trend_weeks, min_trade_value, db_path)
+        # SQLite 模式下
+        df = run_chip_strategy(target_date, weekly_trend_weeks, min_trade_value, db_path)
+        df = add_growth_metrics(df, target_date, use_supabase=False, db_path=db_path)
+        return df
 
 latest_date_str, df_all_stocks = get_db_dates_info()
 
@@ -826,6 +941,22 @@ with st.sidebar.form(key="filter_form"):
     weeks_mapping = {"不限制": 0, "連續 2 週": 2, "連續 3 週": 3, "連續 4 週": 4, "連續 8 週": 8}
     weekly_trend_weeks = weeks_mapping[weeks_option]
 
+    st.markdown('<p style="font-weight: 700; margin-bottom: 2px; font-size: 1.05rem; margin-top: 10px;">▶️ 累積增加比率門檻</p>', unsafe_allow_html=True)
+    growth_pct_option = st.radio(
+        "累積增加比率門檻 (%)",
+        options=["不限制 (0%)", "高於 3%", "高於 5%", "高於 8%"],
+        index=0,
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    growth_pct_mapping = {
+        "不限制 (0%)": 0.0,
+        "高於 3%": 3.0,
+        "高於 5%": 5.0,
+        "高於 8%": 8.0
+    }
+    min_growth_pct = growth_pct_mapping[growth_pct_option]
+
     st.markdown("---")
     st.markdown('<p style="font-weight: 800; margin-bottom: 2px; font-size: 1.15rem;">🚀 法人機構買超比例最低門檻</p>', unsafe_allow_html=True)
     
@@ -897,6 +1028,8 @@ if not df_strategy.empty:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_20d"] >= min_inst_ratio_20d]
     if min_inst_ratio_60d > 0:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_60d"] >= min_inst_ratio_60d]
+    if min_growth_pct > 0.0:
+        df_strategy = df_strategy[df_strategy["holder_growth_pct"] >= min_growth_pct]
     
     if not df_strategy.empty:
         total_matches = len(df_strategy)
@@ -948,6 +1081,8 @@ if not df_strategy.empty:
                 "60日買超股本比": st.column_config.NumberColumn("60日買超股本比", format="%.4f%%"),
                 "千張大戶持股比": st.column_config.NumberColumn("千張大戶持股比", format="%.2f%%"),
                 "400張以上大戶比": st.column_config.NumberColumn("400張以上大戶比", format="%.2f%%"),
+                "大戶連買週數": st.column_config.NumberColumn("大戶連買週數", format="%d 週"),
+                "大戶累積買超%": st.column_config.NumberColumn("大戶累積買超%", format="%+.2f%%"),
                 "20日融資變化": st.column_config.NumberColumn("20日融資變化", format="%+d 張"),
                 "20日融券變化": st.column_config.NumberColumn("20日融券變化", format="%+d 張")
             }
