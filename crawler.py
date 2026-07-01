@@ -39,24 +39,57 @@ def get_api_client():
             print(f"[WARNING] 登入 API Token 失敗: {e}，將使用免費流量限制。")
     return api
 
-def get_active_stock_list(api):
+def get_active_stock_list(api=None):
     """
-    動態取得台灣上市櫃普通股代號與名稱對照 (排除 ETF、指數型商品等)
+    動態取得台灣上市櫃普通股代號與名稱對照，完全使用 TWSE / TPEx 官方 OpenAPI (無需 FinMind Token)
     """
+    stocks = []
+    
+    # 1. 抓取上市股票 (TWSE)
     try:
-        df_info = api.taiwan_stock_info()
-        if df_info is not None and not df_info.empty:
-            df_active = df_info[df_info["type"].isin(["twse", "tpex"])]
-            # 排除 ETF 與指數
-            df_active = df_active[~df_active["industry_category"].isin(["ETF", "Index"])]
-            # 篩選標準 4 碼普通股
-            df_active = df_active[df_active["stock_id"].str.len() == 4].copy()
-            df_active = df_active[["stock_id", "stock_name"]].drop_duplicates(subset=["stock_id"])
-            print(f"[INFO] 成功動態獲取全市場普通股名單，共 {len(df_active)} 檔。")
-            return df_active
+        r = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers={"User-Agent": "Mozilla/5.0"}, verify=False, timeout=15)
+        if r.status_code == 200:
+            for item in r.json():
+                code = item.get("公司代號", "").strip()
+                name = item.get("公司簡稱", "").strip()
+                if len(code) == 4 and code.isdigit() and not code.startswith("00") and not code.startswith("01"):
+                    stocks.append({"stock_id": code, "stock_name": name})
     except Exception as e:
-        print(f"[WARNING] 無法從 FinMind 獲取股票清單: {e}。將使用預設清單作為 Fallback。")
-        
+        print(f"[WARNING] 無法從 TWSE OpenAPI 獲取上市股票清單: {e}")
+
+    # 2. 抓取上櫃股票 (TPEx)
+    try:
+        r = requests.get("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", headers={"User-Agent": "Mozilla/5.0"}, verify=False, timeout=15)
+        if r.status_code == 200:
+            for item in r.json():
+                code = item.get("SecuritiesCompanyCode", "").strip()
+                name = item.get("CompanyName", "").strip()
+                if len(code) == 4 and code.isdigit() and not code.startswith("00") and not code.startswith("01"):
+                    stocks.append({"stock_id": code, "stock_name": name})
+    except Exception as e:
+        print(f"[WARNING] 無法從 TPEx OpenAPI 獲取上櫃股票清單: {e}")
+
+    # 如果官方 API 抓取成功，去重後返回
+    if stocks:
+        df_active = pd.DataFrame(stocks).drop_duplicates(subset=["stock_id"])
+        print(f"[INFO] 成功自官方 OpenAPI 獲取全市場普通股名單，共 {len(df_active)} 檔。")
+        return df_active
+
+    # 3. 備用機制：若 API 均失敗，則從本地資料庫獲取最近活躍的名單
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        df_db = pd.read_sql_query(
+            "SELECT stock_id, stock_name FROM daily_chips WHERE date >= date('now', '-60 days') GROUP BY stock_id",
+            conn
+        )
+        conn.close()
+        if not df_db.empty:
+            print(f"[INFO] 成功從本地資料庫獲取近期活躍股票名單作為備用，共 {len(df_db)} 檔。")
+            return df_db
+    except Exception as e:
+        print(f"[WARNING] 從本地資料庫獲取股票名單失敗: {e}")
+
+    # 4. 終極備用 (Taiwan 50)
     df_t50 = pd.DataFrame([
         {"stock_id": sid, "stock_name": name}
         for sid, name in TAIWAN_50_STOCKS.items()

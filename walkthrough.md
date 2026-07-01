@@ -1084,4 +1084,24 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   - 前端網頁經由自動化瀏覽器子代理驗證，選擇分析日期 `2026-06-30` 後，個股千張大戶持股比已恢復非零的正常數值（例如：預設個股 `2357 華碩` 顯示為 `63.05%`），全市場資料完全恢復正常。
   - 將代碼 commit 並 push 到 GitHub，Streamlit Cloud 已自動拉取最新版程式。
 
+---
+
+## 52. 擺脫 FinMind 依賴：實作免 Token 官方 OpenAPI 股票清單 (2026-07-01)
+
+* **需求背景**：
+  由於 FinMind API 的免費/限制帳戶之 Token 具有 7 天即過期的限制，導致自動更新排程容易因為 Token 逾期而中斷（如先前退回到 50 檔股票的問題）。為了提升系統的自主維護能力，需要讓每日更新完全不需要任何 Token，永久穩定運行。
+
+* **所做變更與實作**：
+  - **重構 `get_active_stock_list` 邏輯**：
+    在 [crawler.py](file:///c:/Users/alber/Desktop/antigravity/chase/crawler.py) 中，將 `get_active_stock_list()` 修改為直接從官方 OpenAPI 獲取：
+    1. **上市股票**：從證交所開放 API `t187ap03_L` 下載。
+    2. **上櫃股票**：從櫃買中心開放 API `tpex_mainboard_daily_close_quotes` 下載。
+    3. **自適應過濾規則**：利用 `len(code) == 4 and code.isdigit() and not code.startswith("00") and not code.startswith("01")` 精確篩選出全台股標準普通股，自動過濾掉 ETF、權證與 REITs 等非普通股。
+    4. **本地備用 (Fallback)**：若官方 API 連線失敗，會自動向本地 SQLite `daily_chips` 查詢最近 60 天內交易活躍的股票 ID 作為名單。
+    5. **終極備用**：降級為內建的 50 檔成分股名單。
+
+* **驗證結果**：
+  - 本地執行 `python -c "import crawler; df = crawler.get_active_stock_list(); print(len(df))"` 驗證，在完全不使用 FinMind SDK 與 Token 的情況下，成功獲取 **1,972 檔** 活躍上市上櫃股票，成功率 100%，自此每日自動更新腳本實現 **100% 免 Token 運作**。
+
+
 
