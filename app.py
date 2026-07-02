@@ -526,9 +526,18 @@ button:not([data-testid="collapsedControl"]) {
     font-family: "Material Symbols Rounded", "Material Symbols Outlined", "Material Icons", "Segoe UI Symbol", sans-serif !important;
 }
 
-/* 隱藏右下角 Streamlit 官方發佈/管理按鈕與連線狀態小圖示 */
-.stAppDeployButton, .stDeployButton, div[data-testid="stConnectionStatus"], div[data-testid="stStatusWidget"], div.viewerBadge {
+/* 隱藏右下角 Streamlit 官方發佈/管理按鈕與連線狀態小圖示、訪客皇冠徽章 */
+.stAppDeployButton, 
+.stDeployButton, 
+div[data-testid="stConnectionStatus"], 
+div[data-testid="stStatusWidget"], 
+div.viewerBadge,
+div[class*="viewerBadge"],
+div[data-testid="stViewerBadge"],
+iframe[title="Manage app"],
+iframe[src*="streamlit.io/content"] {
     display: none !important;
+    visibility: hidden !important;
 }
 
 .gradient-bar {

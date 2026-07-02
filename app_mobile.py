@@ -535,6 +535,20 @@ div.stButton button {
     border-radius: 4px;
     margin-bottom: 25px;
 }
+
+/* 隱藏右下角 Streamlit 官方發佈/管理按鈕與連線狀態小圖示、訪客皇冠徽章 */
+.stAppDeployButton, 
+.stDeployButton, 
+div[data-testid="stConnectionStatus"], 
+div[data-testid="stStatusWidget"], 
+div.viewerBadge,
+div[class*="viewerBadge"],
+div[data-testid="stViewerBadge"],
+iframe[title="Manage app"],
+iframe[src*="streamlit.io/content"] {
+    display: none !important;
+    visibility: hidden !important;
+}
 </style>
 <div class="gradient-bar"></div>
 """

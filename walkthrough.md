@@ -1176,4 +1176,38 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
     程式便會主動將上一次記錄的個股診斷選取狀態清空。
 
 * **驗證結果**：
-  - 啟動 Streamlit 網頁版，點選表格中某檔個股載入診斷卡片後，當修改篩選條件並按下「執行籌碼雷達選股」，下方的個股診斷卡片會隨著表格重新載入而自動隱藏，不會再有舊資料殘留。只有在使用者點選新表格的股票或在側邊欄手動輸入股票執行診斷時，才會正確載入該股票的剖析內容。
+  - 啟動 Streamlit 網頁版，點選表格中某檔個股載入診斷卡片後，當修改篩選條件並按下「執行籌碼雷達選股」，下方的個股診斷卡片會隨著表格重新載入而自動隱藏，不會再有舊資料殘留。只有在使用者點選新表格 the 股票或在側邊欄手動輸入股票執行診斷時，才會正確載入該股票的剖析內容。
+
+---
+
+## 56. 擴充 CSS 樣式覆寫以隱藏訪客帳號的右下角 Streamlit 皇冠圖示 (2026-07-02)
+
+* **問題描述**：
+  使用者反映在主帳號（開發者）登入狀態下，右下角已成功隱藏了 Streamlit 的官方按鈕；但若使用其他帳號或以訪客身份開啟網頁，右下角仍會出現一頂皇冠的「Manage App / Hosted with Streamlit」小圖示。
+
+* **根因分析**：
+  - Streamlit Community Cloud 對於「開發者」與「訪客（其他帳號）」所注入的 DOM 結構有所不同。
+  - 開發者檢視時，顯示的是 `.stAppDeployButton`（部署/管理按鈕）；而訪客檢視時，系統會動態注入一個包含皇冠圖示的 `<iframe>`（標題包含 `Manage app`，或是來源來自 `streamlit.io/content`），或使用 `.stViewerBadge` 與 `div[data-testid="stViewerBadge"]` 等特殊的 class。
+  - 原本的 CSS 規則僅隱藏了舊的 `.viewerBadge` 和開發者專屬按鈕，無法匹配到訪客端的浮動 iframe 或動態 testid。
+
+* **所做變更與實作**：
+  - **擴充 CSS 選擇器 (app.py & app_mobile.py)**：
+    我們在 [app.py:L530](file:///c:/Users/alber/Desktop/antigravity/chase/app.py#L530) 及 [app_mobile.py:L539](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py#L539) 的自訂 `<style>` 區塊中，擴充了隱藏對象，將訪客專屬的 class、testid 以及載入官方徽章的外部 iframe 一併隱藏：
+    ```css
+    .stAppDeployButton, 
+    .stDeployButton, 
+    div[data-testid="stConnectionStatus"], 
+    div[data-testid="stStatusWidget"], 
+    div.viewerBadge,
+    div[class*="viewerBadge"],
+    div[data-testid="stViewerBadge"],
+    iframe[title="Manage app"],
+    iframe[src*="streamlit.io/content"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    ```
+
+* **驗證結果**：
+  - 更新並部署至雲端後，無論是以擁有者帳號登入、其他 GitHub 帳號，或是無登入的無痕視窗（訪客模式）瀏覽，右下角原本浮現的 Streamlit 官方皇冠圖示與「Hosted with Streamlit」徽章均已被成功且乾淨地隱藏。
+
