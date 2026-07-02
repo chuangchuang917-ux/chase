@@ -735,8 +735,11 @@ if not df_strategy.empty:
             short_ratio = (short_diff / vol_20d * 100) if vol_20d > 0 else 0.0
             
             # 大戶連續買超週數
-            consec_text_1000 = consec_dict_1000.get(stock_id, "持平")
-            consec_text_400 = consec_dict_400.get(stock_id, "持平")
+            c_1000 = consec_dict_1000.get(stock_id, 0)
+            c_400 = consec_dict_400.get(stock_id, 0)
+            consec_text_1000 = f"+{c_1000} 週 (連續增加)" if c_1000 > 0 else (f"{c_1000} 週 (連續減少)" if c_1000 < 0 else "持平")
+            consec_text_400 = f"+{c_400} 週 (連續增加)" if c_400 > 0 else (f"{c_400} 週 (連續減少)" if c_400 < 0 else "持平")
+            growth_pct = row.get("holder_growth_pct", 0.0)
             
             # 法人連續買賣超天數
             consec_days = 0
@@ -803,11 +806,12 @@ if not df_strategy.empty:
                             <span>千張大戶持股：<span class="value-normal">{holder_1000:.2f}%</span></span>
                             <span>400張大戶：<span class="value-normal">{holder_400:.2f}%</span></span>
                         </div>
-                        <div style="font-size: 1.15rem; color: #ff9800; margin-top: 4px;">
-                            👉 千張大戶週變動：<span class="value-key">{consec_text_1000}</span>
+                        <div style="display:flex; justify-content:space-between; font-size: 1.15rem; color: #ff9800; margin-top: 4px;">
+                            <span>👉 千張連買：<span class="value-key">{consec_text_1000}</span></span>
+                            <span>累積增幅：<span class="value-key">{growth_pct:+.2f}%</span></span>
                         </div>
                         <div style="font-size: 1.15rem; color: #ff9800; margin-top: 4px;">
-                            👉 400張大戶週變動：<span class="value-key">{consec_text_400}</span>
+                            👉 400張週變動：<span class="value-key">{consec_text_400}</span>
                         </div>
                     </div>
                 </div>
