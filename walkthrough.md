@@ -1211,3 +1211,17 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 * **驗證結果**：
   - 更新並部署至雲端後，無論是以擁有者帳號登入、其他 GitHub 帳號，或是無登入的無痕視窗（訪客模式）瀏覽，右下角原本浮現的 Streamlit 官方皇冠圖示與「Hosted with Streamlit」徽章均已被成功且乾淨地隱藏。
 
+
+
+---
+
+## 32. 📱 手機版 (app_mobile.py) 篩選條件 UI 同步問題修復
+
+* **發生問題**：
+  使用者回報在手機版介面切換過濾條件（如成交額、週數下拉選單）時，若未點擊『執行選股』按鈕，下方的篩選結果清單仍會維持舊的過濾條件結果，造成 UI 顯示與實際資料不同步的錯覺。
+* **問題根因**：
+  原先的 app_mobile.py 中的篩選器（st.selectbox）並未被包裝於 st.form 中。當下拉選單被改變時，Streamlit 會立即觸發重整，但因 search_clicked 仍為 False，系統載入了快取中的舊 DataFrame，導致 UI 與資料脫鉤。
+* **執行修正**：
+  我們已將 app_mobile.py 頂部的過濾控制區使用 with st.form(key='mobile_filter_form'): 進行包裝，並將執行按鈕更改為 st.form_submit_button。
+* **驗證結果**：
+  現在手機版介面的行為已與電腦版完全一致：使用者可以自由切換條件而不會觸發無效重整，只有在點擊執行按鈕後，資料與 UI 才會同步更新，大幅提升了操作流暢度。
