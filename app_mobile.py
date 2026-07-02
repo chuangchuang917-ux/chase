@@ -581,7 +581,7 @@ trading_dates = get_available_trading_dates()
 # ==========================================
 # 6. 頂部篩選控制區 (全下拉選單設計)
 # ==========================================
-with st.container():
+with st.form(key="mobile_filter_form"):
     # 1. 策略分析日期
     selected_date_str = st.selectbox(
         "📅 選擇分析日期",
@@ -650,7 +650,7 @@ with st.container():
 
     # 執行搜尋按鈕
     st.markdown("<div style='margin-top:15px;'></div>", unsafe_allow_html=True)
-    search_clicked = st.button("🎯 執行籌碼雷達選股", use_container_width=True)
+    search_clicked = st.form_submit_button("🎯 執行籌碼雷達選股", use_container_width=True)
 
 st.markdown("---")
 
