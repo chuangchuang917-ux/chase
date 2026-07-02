@@ -735,10 +735,8 @@ if not df_strategy.empty:
             short_ratio = (short_diff / vol_20d * 100) if vol_20d > 0 else 0.0
             
             # 大戶連續買超週數
-            c_1000 = consec_dict_1000.get(stock_id, 0)
-            c_400 = consec_dict_400.get(stock_id, 0)
-            consec_text_1000 = f"+{c_1000} 週 (連續增加)" if c_1000 > 0 else (f"{c_1000} 週 (連續減少)" if c_1000 < 0 else "持平")
-            consec_text_400 = f"+{c_400} 週 (連續增加)" if c_400 > 0 else (f"{c_400} 週 (連續減少)" if c_400 < 0 else "持平")
+            consec_text_1000 = consec_dict_1000.get(stock_id, "持平")
+            consec_text_400 = consec_dict_400.get(stock_id, "持平")
             growth_pct = row.get("holder_growth_pct", 0.0)
             
             # 法人連續買賣超天數
