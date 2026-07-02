@@ -715,7 +715,8 @@ if not df_strategy.empty:
         else:
             st.success(f"🎉 篩選完成！共找到 {len(df_strategy)} 檔主力鎖碼股票")
         
-        # 開始渲染卡片
+        # 開始渲染卡片 — 合併為單一 HTML 輸出，避免多個 st.html() iframe 殘留問題
+        all_cards_html = []
         for idx, row in df_strategy.iterrows():
             stock_id = row["stock_id"]
             stock_name = row["stock_name"]
@@ -769,8 +770,8 @@ if not df_strategy.empty:
             short_class = "value-highlight-down" if short_ratio > 0 else "value-normal"
 
             
-            # 渲染卡片 HTML
-            st.html(clean_html(f"""
+            # 組裝單張卡片 HTML
+            all_cards_html.append(f"""
             <div class="elder-card">
                 <!-- 1. 卡片頭：代號名稱與收盤價、漲跌幅 -->
                 <div class="elder-card-title">
@@ -829,7 +830,10 @@ if not df_strategy.empty:
                     </div>
                 </div>
             </div>
-            """))
+            """)
+        
+        # 一次性渲染所有卡片（單一 st.html 呼叫，避免 iframe 殘留）
+        st.html(clean_html("\n".join(all_cards_html)))
             
     else:
         st.info("ℹ️ 在目前過濾條件下無符合股票，請嘗試放寬篩選設定。")
