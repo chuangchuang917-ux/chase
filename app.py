@@ -1013,6 +1013,9 @@ date_changed = st.session_state.get("_last_strategy_date", "") != selected_date_
 force_recalc = submit_button or date_changed or st.session_state.get("force_recalc_after_adjustment", False) or "_df_strategy_cache" not in st.session_state
 
 if force_recalc:
+    # 方案 B：當執行新搜尋或變更日期時，清空上一次的個股診斷選取狀態，避免結果殘留
+    st.session_state.selected_stock_str = None
+    
     if "force_recalc_after_adjustment" in st.session_state:
         st.session_state.force_recalc_after_adjustment = False
     with st.spinner("🔍 正在篩選股票中..."):
