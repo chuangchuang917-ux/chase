@@ -1265,3 +1265,33 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
   - OTC 抽樣：1240 (close=58)、6435 (close=392.5)、8069 (close=205.5)、3293 (close=800) 全部 PRESENT ?
 
 * 程式碼已 commit 並 push 至 GitHub master 分支，未來 GitHub Actions 凌晨自動排程將使用修復後的版本。
+
+---
+
+## 58. 修復千張大戶累積增幅 = 持股比例的計算錯誤 (2026-07-03)
+
+* **問題描述**：
+  使用者發現 2026-07-02 日期下，千張大戶的「累積增幅」數值與「持股比例」幾乎相同，例如 持股比例=64.11%，累積增幅也顯示=64.11%。
+
+* **根因分析**：
+  Supabase 中 2026-06-26（週五）和 2026-06-30（週一）兩個日期的 holder_over_1000 被錯誤存為 0。
+  - 6/26：集保大戶週資料在當天 GitHub Actions 執行時尚未公佈，holder 欄位以 0 寫入。
+  - 6/30：同樣問題延伸導致 holder = 0。
+
+  add_growth_metrics 在計算「W26 那週（growth_weeks=1）」的累積增幅時：
+  - v_1000 list = [當週值(64.11), W26值(0.0), W25值(63.95), ...]
+  - growth_pct = v[0] - v[1] = 64.11 - 0 = 64.11（等於持股比例本身！）
+
+  受影響股票：所有 growth_weeks=1 的股票（7/2 約 268 檔），其 W26 的基準值被取到 0。
+
+* **修復執行**：
+  1. 執行 python sync_single_date.py 2026-06-26 → 重算並正確寫入 1,968 筆（holder 非零）?
+  2. 執行 python sync_single_date.py 2026-06-30 → 重算並正確寫入 1,971 筆（holder 非零）?
+
+* **驗證結果**：
+  修復後 Supabase 2330 各日期 holder_over_1000 全部 > 0，不再有 0 值。
+  1227 的 growth_pct 修復前：64.11（等於持股比），修復後：0.0（正確，本週與上週持平）。
+
+* **長期防範（未來方向）**：
+  add_growth_metrics 的 Supabase 模式應在計算時，跳過 holder_over_1000=0 的資料列，
+  不應將 0 當作有效的歷史基準值。可考慮在 df_hist 中過濾 holder_over_1000 > 0 再進行 iso_week 去重。
