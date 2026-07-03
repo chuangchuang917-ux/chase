@@ -1313,3 +1313,21 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 
 * **部署與驗證**：
   - 本地程式碼已通過驗證，已順利 commit 並推送至遠端倉庫，Streamlit Cloud 將會自動同步最新防禦代碼。
+
+---
+
+## 60. 手機版搜尋結果卡片標題處新增「查詢當天日期」顯示 (2026-07-03)
+
+* **需求描述**：
+  在手機版網頁（app_mobile.py）搜尋或篩選出來的個股卡片頂部，於股票代號與名稱的右側（即圈圈位置）顯示當前查詢的交易日期。
+
+* **所做變更與實作**：
+  - 修改 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py) 的卡片 HTML 模板部分。
+  - 將原本的 <span>{stock_id} {stock_name}</span> 更新為：
+    `html
+    <span>{stock_id} {stock_name} <span style="font-size: 1.15rem; color: #8b949e; margin-left: 8px;">({selected_date_str.replace('-', '/')})</span></span>
+    `
+  - **呈現效果**：例如「**2401 凌陽 (2026/07/02)**」，能讓使用者在看卡片時，一目了然該筆籌碼數據所屬的日期。
+
+* **部署狀態**：
+  - 已完成 commit 並 push 到 GitHub master 分支，已觸發 Streamlit Cloud 自動重新部署。
