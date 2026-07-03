@@ -42,9 +42,14 @@ def get_api_client():
 def get_active_stock_list(api=None):
     """
     動態取得台灣上市櫃普通股代號與名稱對照，完全使用 TWSE / TPEx 官方 OpenAPI (無需 FinMind Token)
+    修復：分別追蹤 TWSE/TPEx 是否成功，若任一方 API 失敗則從本地 SQLite 補齊，
+    避免部分失敗時返回不完整名單導致 OTC 股票被誤過濾。
     """
-    stocks = []
-    
+    twse_stocks = []
+    tpex_stocks = []
+    twse_ok = False
+    tpex_ok = False
+
     # 1. 抓取上市股票 (TWSE)
     try:
         r = requests.get("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", headers={"User-Agent": "Mozilla/5.0"}, verify=False, timeout=15)
@@ -53,7 +58,10 @@ def get_active_stock_list(api=None):
                 code = item.get("公司代號", "").strip()
                 name = item.get("公司簡稱", "").strip()
                 if len(code) == 4 and code.isdigit() and not code.startswith("00") and not code.startswith("01"):
-                    stocks.append({"stock_id": code, "stock_name": name})
+                    twse_stocks.append({"stock_id": code, "stock_name": name})
+            if twse_stocks:
+                twse_ok = True
+                print(f"[INFO] TWSE OpenAPI 成功取得 {len(twse_stocks)} 檔上市股。")
     except Exception as e:
         print(f"[WARNING] 無法從 TWSE OpenAPI 獲取上市股票清單: {e}")
 
@@ -65,17 +73,44 @@ def get_active_stock_list(api=None):
                 code = item.get("SecuritiesCompanyCode", "").strip()
                 name = item.get("CompanyName", "").strip()
                 if len(code) == 4 and code.isdigit() and not code.startswith("00") and not code.startswith("01"):
-                    stocks.append({"stock_id": code, "stock_name": name})
+                    tpex_stocks.append({"stock_id": code, "stock_name": name})
+            if tpex_stocks:
+                tpex_ok = True
+                print(f"[INFO] TPEx OpenAPI 成功取得 {len(tpex_stocks)} 檔上櫃股。")
     except Exception as e:
         print(f"[WARNING] 無法從 TPEx OpenAPI 獲取上櫃股票清單: {e}")
 
-    # 如果官方 API 抓取成功，去重後返回
+    # 3. 若任一 API 失敗，從本地 SQLite 補齊缺失的部分
+    #    (避免部分失敗時返回不完整名單，導致 fetch_daily_data_from_open_apis 過濾掉一半市場)
+    if not twse_ok or not tpex_ok:
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            df_db = pd.read_sql_query(
+                "SELECT stock_id, stock_name FROM daily_chips WHERE date >= date('now', '-60 days') GROUP BY stock_id",
+                conn
+            )
+            conn.close()
+            if not df_db.empty:
+                if not twse_ok:
+                    print(f"[WARNING] TWSE API 失敗，從本地 SQLite 補齊上市股清單。")
+                if not tpex_ok:
+                    print(f"[WARNING] TPEx API 失敗，從本地 SQLite 補齊上櫃股清單。")
+                # 合併 API 成功的部分 + SQLite 的全部 (去重)
+                all_stocks = twse_stocks + tpex_stocks + df_db.to_dict("records")
+                df_active = pd.DataFrame(all_stocks).drop_duplicates(subset=["stock_id"])
+                print(f"[INFO] 合併後全市場名單共 {len(df_active)} 檔。")
+                return df_active
+        except Exception as e:
+            print(f"[WARNING] 從本地資料庫補齊股票名單失敗: {e}")
+
+    # 4. 兩個 API 都成功 → 合併去重返回
+    stocks = twse_stocks + tpex_stocks
     if stocks:
         df_active = pd.DataFrame(stocks).drop_duplicates(subset=["stock_id"])
         print(f"[INFO] 成功自官方 OpenAPI 獲取全市場普通股名單，共 {len(df_active)} 檔。")
         return df_active
 
-    # 3. 備用機制：若 API 均失敗，則從本地資料庫獲取最近活躍的名單
+    # 5. 備用機制：若 API 均失敗，則從本地資料庫獲取最近活躍的名單
     try:
         conn = sqlite3.connect(DB_PATH)
         df_db = pd.read_sql_query(
@@ -89,7 +124,8 @@ def get_active_stock_list(api=None):
     except Exception as e:
         print(f"[WARNING] 從本地資料庫獲取股票名單失敗: {e}")
 
-    # 4. 終極備用 (Taiwan 50)
+    # 6. 終極備用 (Taiwan 50)
+    print(f"[WARNING] 所有來源均失敗，降級使用台灣 50 成分股名單。")
     df_t50 = pd.DataFrame([
         {"stock_id": sid, "stock_name": name}
         for sid, name in TAIWAN_50_STOCKS.items()
@@ -523,15 +559,30 @@ def fetch_daily_data_from_open_apis(active_stock_ids):
 
     df_merged = pd.merge(df_price, df_inst, on="stock_id", how="left")
     df_merged = pd.merge(df_merged, df_margin, on="stock_id", how="left")
-    
-    df_merged = df_merged[df_merged["stock_id"].isin(active_stock_ids)].copy()
-    
+
+    # 修復：改用股票代號格式規則直接過濾，不依賴 active_stock_ids。
+    # 原本依賴 active_stock_ids 的問題：若 get_active_stock_list() 任一 API 失敗，
+    # active_stock_ids 會不完整，導致 TWSE 或 OTC 的數百檔股票被誤過濾掉。
+    # 現在改用與 get_active_stock_list 相同的過濾條件直接套用在 price 資料上，
+    # 確保只要資料來源能拿到資料，就一定寫入，不受名單 API 失敗的影響。
+    mask = (
+        df_merged["stock_id"].str.len() == 4
+    ) & (
+        df_merged["stock_id"].str.isdigit()
+    ) & (
+        ~df_merged["stock_id"].str.startswith("00")
+    ) & (
+        ~df_merged["stock_id"].str.startswith("01")
+    )
+    df_merged = df_merged[mask].copy()
+    print(f"[INFO] 過濾後共 {len(df_merged)} 檔普通股資料。")
+
     df_merged["foreign_buy_shares"] = df_merged["foreign_buy_shares"].fillna(0.0)
     df_merged["trust_buy_shares"] = df_merged["trust_buy_shares"].fillna(0.0)
     df_merged["margin_purchase_balance"] = df_merged["margin_purchase_balance"].fillna(0.0)
     df_merged["short_sale_balance"] = df_merged["short_sale_balance"].fillna(0.0)
     df_merged["shares_issued"] = 0.0
-    
+
     return df_merged
 
 def save_to_db_unique(df, table_name, db_path=DB_PATH):
