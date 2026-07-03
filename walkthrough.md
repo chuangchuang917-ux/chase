@@ -1295,3 +1295,21 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 * **長期防範（未來方向）**：
   add_growth_metrics 的 Supabase 模式應在計算時，跳過 holder_over_1000=0 的資料列，
   不應將 0 當作有效的歷史基準值。可考慮在 df_hist 中過濾 holder_over_1000 > 0 再進行 iso_week 去重。
+
+---
+
+## 59. 實作大戶累積增幅計算的防禦性過濾機制 (2026-07-03)
+
+* **問題背景**：
+  為了防範未來再度因 GitHub Actions 同步時差，導致 Supabase 出現大戶持股比欄位為   的異常數據進而影響「累積增幅（holder_growth_pct）」計算。
+
+* **所做變更與實作**：
+  - **更新代碼**：修改了 [app.py](file:///c:/Users/alber/Desktop/antigravity/chase/app.py) 與 [app_mobile.py](file:///c:/Users/alber/Desktop/antigravity/chase/app_mobile.py) 的 dd_growth_metrics() 函數。
+  - **防禦邏輯**：在取得歷史週資料後、進行 iso_week 分組去重之前，加入過濾條件，強制排除持股比為 0 的列：
+    `python
+    df_hist = df_hist[df_hist["holder_over_1000"] > 0]
+    `
+  - **效果**：即使歷史數據庫中某一天因爬取延遲而寫入  ，該   也不會被作為大戶連續買進的歷史基準值，從而根本避免了「累積增幅等於當前持股比例」的錯誤。
+
+* **部署與驗證**：
+  - 本地程式碼已通過驗證，已順利 commit 並推送至遠端倉庫，Streamlit Cloud 將會自動同步最新防禦代碼。

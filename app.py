@@ -290,6 +290,11 @@ def add_growth_metrics(df, target_date, use_supabase=True, db_path=None):
                 df_hist = pd.DataFrame(records)
                 df_hist["stock_id"] = df_hist["stock_id"].astype(str)
                 df_hist["holder_over_1000"] = pd.to_numeric(df_hist["holder_over_1000"], errors='coerce').fillna(0.0)
+                # 防禦邏輯：過濾掉 holder_over_1000 = 0 的列。
+                # 當 GitHub Actions 在集保週資料尚未公佈時執行同步，holder 欄位會被存為 0。
+                # 若不過濾，這些 0 值會被 iso_week 去重後當作基準值，導致
+                # growth_pct = current_value - 0 = current_value（等於持股比例本身），計算完全錯誤。
+                df_hist = df_hist[df_hist["holder_over_1000"] > 0]
                 df_hist["date_dt"] = pd.to_datetime(df_hist["date"])
                 df_hist["iso_year"] = df_hist["date_dt"].dt.isocalendar().year
                 df_hist["iso_week"] = df_hist["date_dt"].dt.isocalendar().week
