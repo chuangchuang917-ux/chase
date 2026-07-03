@@ -781,7 +781,7 @@ if not df_strategy.empty:
                 <!-- 1. 卡片頭：代號名稱與收盤價、漲跌幅 -->
                 <div class="elder-card-title">
                     <div>
-                        <span>{stock_id} {stock_name}</span>
+                        <span>{stock_id} {stock_name} <span style="font-size: 1.15rem; color: #8b949e; margin-left: 8px;">({selected_date_str.replace('-', '/')})</span></span>
                         <div style="margin-top: 6px; font-weight: normal; font-size: 1.15rem; color: #8b949e;">
                             成交張數：<span style="color: #ffffff; font-weight: bold;">{volume_val:,.0f}</span> 張
                         </div>
