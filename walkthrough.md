@@ -1331,3 +1331,28 @@ python -c "import sqlite3; conn = sqlite3.connect('taiwan_stock.db'); print('>=1
 
 * **部署狀態**：
   - 已完成 commit 並 push 到 GitHub master 分支，已觸發 Streamlit Cloud 自動重新部署。
+
+---
+
+## 61. SQLite 資料庫查詢效能優化 (2026-07-03)
+
+* **問題描述**：
+  使用者反應目前系統在進行搜尋與特定個股診斷時，速度有變慢的跡象。
+
+* **根因分析與效能測試**：
+  1. 經檢查 SQLite 的表格與索引設計，發現原有的主鍵與複合索引皆為 (date, stock_id)（以 **日期 (date)** 開頭）。
+  2. 但系統中許多耗時的查詢（例如取得個股近 30 日法人餘額、近 N 週大戶變化）皆是先指定 **股票代號 (stock_id)** 限制，接著才進行 date <= ? 的範圍查詢與排序。
+  3. 由於沒有以 stock_id 為首的複合索引，SQLite 在執行這些查詢時，必須透過 SEARCH ... USING INDEX (date < ?) 對索引中幾乎所有的歷史日期進行掃描再二次過濾股票，導致效能低落。
+
+* **優化方案與實作結果**：
+  - **建立新複合索引**：修改了 [database.py](file:///c:/Users/alber/Desktop/antigravity/chase/database.py)，為 daily_chips 與 weekly_shareholders 分別新建了以 (stock_id, date) 開頭的複合索引：
+    `sql
+    CREATE INDEX IF NOT EXISTS idx_daily_chips_stock_date ON daily_chips (stock_id, date);
+    CREATE INDEX IF NOT EXISTS idx_weekly_shareholders_stock_date ON weekly_shareholders (stock_id, date);
+    `
+  - **效能提升對比測試 (100 次連續查詢時間)**：
+    * **個股近30日法人合計查詢**：502 ms ?? 降低至 **3 ms** (**提升 167 倍速度**)。
+    * **個股週持股歷史查詢**：954 ms ?? 降低至 **33 ms** (**提升 28 倍速度**)。
+
+* **部署狀態**：
+  - 已在本地 SQLite 資料庫完成手動建立，並已將代碼變更 push 至 GitHub 倉庫儲存以保證後續資料庫重構時能自動建立。
