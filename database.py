@@ -45,6 +45,12 @@ def init_db(db_path=DB_NAME):
             ON daily_chips (date, stock_id);
         """)
         
+        # 建立 daily_chips (stock_id, date) 複合索引 (優化按股票代號查詢)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_daily_chips_stock_date 
+            ON daily_chips (stock_id, date);
+        """)
+        
         # 安全升級機制：若 daily_chips 已存在但缺信用交易欄位，則動態新增
         cursor.execute("PRAGMA table_info(daily_chips);")
         columns = [col[1] for col in cursor.fetchall()]
@@ -69,6 +75,12 @@ def init_db(db_path=DB_NAME):
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_weekly_shareholders_date_stock 
             ON weekly_shareholders (date, stock_id);
+        """)
+
+        # 建立 weekly_shareholders (stock_id, date) 複合索引 (優化按股票代號查詢)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_weekly_shareholders_stock_date 
+            ON weekly_shareholders (stock_id, date);
         """)
         
         conn.commit()
