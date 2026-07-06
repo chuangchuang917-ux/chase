@@ -1,15 +1,21 @@
-name: Chase Daily Supabase Sync
+name: Chase Daily Supabase Sync (v2)
 
 on:
-  # 每日台灣時間 02:00（UTC 18:00 前一天）執行
+  # 每日台灣時間 18:30（UTC 10:30）執行
+  # 確保 TWSE/TPEx 資料已在台灣時間 15:30 後更新完畢
   schedule:
-    - cron: '0 18 * * *'
+    - cron: '30 10 * * 1-5'   # 只在週一至週五執行（UTC 10:30 = 台灣 18:30）
   # 允許手動觸發（測試用）
   workflow_dispatch:
+    inputs:
+      target_date:
+        description: '手動指定抓取日期（YYYY-MM-DD，留空則自動推算最近交易日）'
+        required: false
+        default: ''
 
 jobs:
   daily-update:
-    name: Fetch & Sync to Supabase
+    name: Rebuild SQLite from Supabase → Crawl → Sync
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -29,44 +35,28 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      # ── 4. 下載最新 SQLite（從 Release 存取）─────────
-      #  由於 SQLite 不能存在 GitHub repo（太大），
-      #  我們從上一次 Release 的 artifact 下載，
-      #  或如果沒有就建立空庫讓 crawler 自動初始化。
-      - name: Restore SQLite database from cache
-        id: cache-db
-        uses: actions/cache@v4
-        with:
-          path: taiwan_stock.db
-          # key 用日期讓每天都能更新
-          key: taiwan-stock-db-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            taiwan-stock-db-${{ runner.os }}-
+      # ── 4. 執行新版每日更新腳本（v2 新架構）─────────
+      #   新架構不依賴 GitHub Cache，每次從 Supabase 重建暫存 SQLite
+      - name: Set override date env (if manual trigger)
+        if: github.event.inputs.target_date != ''
+        run: echo "OVERRIDE_DATE=${{ github.event.inputs.target_date }}" >> $GITHUB_ENV
 
-      # ── 5. 執行每日更新腳本 ────────────────────────────
-      - name: Run daily update
+      - name: Run daily update v2
         env:
           FINMIND_TOKEN: ${{ secrets.FINMIND_TOKEN }}
           SUPABASE_URL:  ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY:  ${{ secrets.SUPABASE_KEY }}
-        run: python daily_update.py
+        run: python daily_update_v2.py
 
-      # ── 6. 儲存更新後的 SQLite（供下次使用）──────────
-      - name: Save updated SQLite to cache
-        uses: actions/cache/save@v4
-        if: always()
-        with:
-          path: taiwan_stock.db
-          key: taiwan-stock-db-${{ runner.os }}-${{ github.run_id }}
-
-      # ── 7. 輸出摘要 ────────────────────────────────────
+      # ── 5. 輸出摘要 ────────────────────────────────────
       - name: Print summary
         if: always()
         run: |
-          echo "## ✅ Chase Daily Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Chase Daily Update Summary (v2)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| 項目 | 說明 |" >> $GITHUB_STEP_SUMMARY
           echo "|------|------|" >> $GITHUB_STEP_SUMMARY
           echo "| 執行時間 | $(TZ='Asia/Taipei' date '+%Y-%m-%d %H:%M:%S') (台灣時間) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Cron 排程 | 0 18 * * * (每日 UTC 18:00 = 台灣 02:00) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cron 排程 | 30 10 * * 1-5 (每週一至週五 UTC 10:30 = 台灣 18:30) |" >> $GITHUB_STEP_SUMMARY
+          echo "| 架構 | v2（Supabase 為 Single Source of Truth，不依賴 GitHub Cache）|" >> $GITHUB_STEP_SUMMARY
           echo "| Supabase | ${{ secrets.SUPABASE_URL }} |" >> $GITHUB_STEP_SUMMARY
