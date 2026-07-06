@@ -221,8 +221,8 @@ def get_db_dates_info():
     """
     if USE_SUPABASE:
         try:
-            # 1. 取得最新交易日
-            url_date = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&order=date.desc&limit=1"
+            # 1. 取得最新交易日（加 volume>0 過濾，避免取到週末無資料的日期）
+            url_date = f"{SUPABASE_URL}/rest/v1/chase_strategy_results?select=date&volume=gt.0&order=date.desc&limit=1"
             r_date = requests.get(url_date, headers=SUPABASE_HEADERS, timeout=10)
             latest_date_str = None
             if r_date.status_code == 200 and r_date.json():
