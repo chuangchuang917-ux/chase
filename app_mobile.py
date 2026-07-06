@@ -684,8 +684,13 @@ if not df_strategy.empty:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_20d"] >= min_inst_ratio_20d]
     if min_inst_ratio_60d > 0:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_60d"] >= min_inst_ratio_60d]
-    if min_growth_pct > 0.0:
-        df_strategy = df_strategy[df_strategy["holder_growth_pct"] >= min_growth_pct]
+    # 大戸持股增幅篩選：觀察視窗 × 增幅門殾
+    if selected_window_col and min_growth_pct > 0.0:
+        if selected_window_col in df_strategy.columns:
+            df_strategy = df_strategy[df_strategy[selected_window_col] >= min_growth_pct]
+    elif selected_window_col and min_growth_pct == 0.0:
+        if selected_window_col in df_strategy.columns:
+            df_strategy = df_strategy[df_strategy[selected_window_col] > 0]
         
     # 搜尋與個股診斷過濾
     if search_stock_q.strip():
@@ -740,12 +745,17 @@ if not df_strategy.empty:
             margin_ratio = (margin_diff / vol_20d * 100) if vol_20d > 0 else 0.0
             short_ratio = (short_diff / vol_20d * 100) if vol_20d > 0 else 0.0
             
-            # 大戶連續買超週數
+            # 大戶連續買超週數（保留用於顯示參考）
             consec_text_1000 = consec_dict_1000.get(stock_id, "持平")
             consec_text_400 = consec_dict_400.get(stock_id, "持平")
-            growth_pct = row.get("holder_growth_pct", 0.0)
-            # 防禦：增幅超過 5% 代表基準值為 0（集保未完結週資料），顯示 N/A
-            growth_pct_text = "N/A" if abs(growth_pct) > 5.0 else f"{growth_pct:+.2f}%"
+            # 固定視窗持股淨增幅
+            def _fmt_hw(v):
+                if v is None or (isinstance(v, float) and v != v):
+                    return "N/A"
+                return f"{v:+.2f}%"
+            h2w_text = _fmt_hw(row.get("holder_2w_change", None))
+            h4w_text = _fmt_hw(row.get("holder_4w_change", None))
+            h8w_text = _fmt_hw(row.get("holder_8w_change", None))
             
             # 法人連續買賣超天數
             consec_days = 0
@@ -813,11 +823,9 @@ if not df_strategy.empty:
                             <span>400張大戶：<span class="value-normal">{holder_400:.2f}%</span></span>
                         </div>
                         <div style="display:flex; justify-content:space-between; font-size: 1.15rem; color: #ff9800; margin-top: 4px;">
-                            <span>👉 千張連買：<span class="value-key">{consec_text_1000}</span></span>
-                            <span>累積增幅：<span class="value-key">{growth_pct_text}</span></span>
-                        </div>
-                        <div style="font-size: 1.15rem; color: #ff9800; margin-top: 4px;">
-                            👉 400張週變動：<span class="value-key">{consec_text_400}</span>
+                            <span>2週增幅：<span class="value-key">{h2w_text}</span></span>
+                            <span>4週增幅：<span class="value-key">{h4w_text}</span></span>
+                            <span>8週增幅：<span class="value-key">{h8w_text}</span></span>
                         </div>
                     </div>
                 </div>

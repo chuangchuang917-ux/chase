@@ -947,21 +947,23 @@ with st.sidebar.form(key="filter_form"):
     min_trade_val_million = trade_val_mapping[trade_val_option]
     min_trade_val_ntd = min_trade_val_million * 10000
 
-    st.markdown('<p style="font-weight: 800; margin-bottom: 2px; margin-top: 15px;">👥 千張大戶買進週數</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-weight: 800; margin-bottom: 2px; margin-top: 15px;">👥 千張大戶持股增幅篩選</p>', unsafe_allow_html=True)
     
-    weeks_option = st.radio(
-        "千張大戶連續吸貨週數過濾",
-        options=["不限制", "連續 2 週", "連續 3 週", "連續 4 週", "連續 8 週"],
+    st.markdown('<p style="font-weight: 700; margin-bottom: 2px; font-size: 1.05rem;">▶️ 觀察視窗</p>', unsafe_allow_html=True)
+    window_option = st.radio(
+        "大戶觀察視窗",
+        options=["不限制", "2 週", "3 週", "4 週", "8 週"],
         index=0,
         horizontal=True,
         label_visibility="collapsed"
     )
-    weeks_mapping = {"不限制": 0, "連續 2 週": 2, "連續 3 週": 3, "連續 4 週": 4, "連續 8 週": 8}
-    weekly_trend_weeks = weeks_mapping[weeks_option]
+    window_col_map = {"不限制": None, "2 週": "holder_2w_change", "3 週": "holder_3w_change",
+                     "4 週": "holder_4w_change", "8 週": "holder_8w_change"}
+    selected_window_col = window_col_map[window_option]
 
-    st.markdown('<p style="font-weight: 700; margin-bottom: 2px; font-size: 1.05rem; margin-top: 10px;">▶️ 累積增加比率門檻</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-weight: 700; margin-bottom: 2px; font-size: 1.05rem; margin-top: 10px;">▶️ 持股增幅門檻</p>', unsafe_allow_html=True)
     growth_pct_option = st.radio(
-        "累積增加比率門檻 (%)",
+        "持股增幅門檻 (%)",
         options=["不限制 (0%)", "高於 3%", "高於 5%", "高於 8%"],
         index=0,
         horizontal=True,
@@ -1035,7 +1037,7 @@ if force_recalc:
     with st.spinner("🔍 正在篩選股票中..."):
         df_strategy = cached_run_chip_strategy(
             target_date=selected_date_str,
-            weekly_trend_weeks=weekly_trend_weeks,
+            weekly_trend_weeks=0,
             min_trade_value=min_trade_val_ntd,
             db_path=DB_PATH
         )
@@ -1049,8 +1051,14 @@ if not df_strategy.empty:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_20d"] >= min_inst_ratio_20d]
     if min_inst_ratio_60d > 0:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_60d"] >= min_inst_ratio_60d]
-    if min_growth_pct > 0.0:
-        df_strategy = df_strategy[df_strategy["holder_growth_pct"] >= min_growth_pct]
+    # 大戸持股增幅篩選：將觀察視窗與增幅門殾組合
+    if selected_window_col and min_growth_pct > 0.0:
+        if selected_window_col in df_strategy.columns:
+            df_strategy = df_strategy[df_strategy[selected_window_col] >= min_growth_pct]
+    elif selected_window_col and min_growth_pct == 0.0:
+        # 對豸不限增幅但選了視窗：至少要有正向增幅
+        if selected_window_col in df_strategy.columns:
+            df_strategy = df_strategy[df_strategy[selected_window_col] > 0]
     
     if not df_strategy.empty:
         total_matches = len(df_strategy)
@@ -1337,6 +1345,22 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                         delta=consec_400_delta,
                         delta_color="inverse"
                     )
+
+                # 固定視窗持股淨增幅顯示
+                def fmt_holder_change(v):
+                    if v is None or (isinstance(v, float) and v != v):
+                        return "N/A"
+                    return f"{v:+.2f}%"
+                h2w = row_info.get("holder_2w_change", None)
+                h4w = row_info.get("holder_4w_change", None)
+                h8w = row_info.get("holder_8w_change", None)
+                col_2w, col_4w, col_8w = st.columns(3)
+                with col_2w:
+                    st.metric("2週淨增幅", fmt_holder_change(h2w))
+                with col_4w:
+                    st.metric("4週淨增幅", fmt_holder_change(h4w))
+                with col_8w:
+                    st.metric("8週淨增幅", fmt_holder_change(h8w))
 
             st.markdown('<div class="section-title">📉 信用交易 (融資融券)</div>', unsafe_allow_html=True)
             with st.container(border=True):

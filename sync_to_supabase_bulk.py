@@ -118,10 +118,16 @@ def sync_data_bulk():
             df["holder_over_1000"] = 0.0
             df["holder_over_400"] = 0.0
             df["holder_growth_weeks"] = 0
+            for w in [2, 3, 4, 8]:
+                df[f"holder_{w}w_change"] = 0.0
         else:
             df_weekly = df_weekly.sort_values(by=["stock_id", "date"])
             df_weekly["increased"] = df_weekly.groupby("stock_id")["holder_over_1000"].diff() > 0
             df_weekly["growth_weeks"] = df_weekly.groupby("stock_id")["increased"].transform(calculate_consecutive_growth)
+            
+            # 計算各固定視窗的持股淨增幅 (diff(N) = 本週 - N週前)
+            for w in [2, 3, 4, 8]:
+                df_weekly[f"holder_{w}w_change"] = df_weekly.groupby("stock_id")["holder_over_1000"].diff(w)
             
             # 4. 用 pd.merge_asof 將週資料(最新的 w_date <= date) 整合進日資料中
             df["dt"] = pd.to_datetime(df["date"])
@@ -130,9 +136,11 @@ def sync_data_bulk():
             df = df.sort_values(by="dt")
             df_weekly = df_weekly.sort_values(by="dt")
             
+            weekly_merge_cols = ["dt", "stock_id", "holder_over_1000", "holder_over_400", "growth_weeks",
+                                 "holder_2w_change", "holder_3w_change", "holder_4w_change", "holder_8w_change"]
             df = pd.merge_asof(
                 df,
-                df_weekly[["dt", "stock_id", "holder_over_1000", "holder_over_400", "growth_weeks"]],
+                df_weekly[weekly_merge_cols],
                 on="dt",
                 by="stock_id",
                 direction="backward"
@@ -142,6 +150,8 @@ def sync_data_bulk():
             df["holder_over_1000"] = df["holder_over_1000"].fillna(0.0)
             df["holder_over_400"] = df["holder_over_400"].fillna(0.0)
             df["holder_growth_weeks"] = df["growth_weeks"].fillna(0).astype(int)
+            for w in [2, 3, 4, 8]:
+                df[f"holder_{w}w_change"] = df[f"holder_{w}w_change"].fillna(0.0)
             
         # 5. 篩選與重整欄位
         output_cols = [
@@ -154,7 +164,9 @@ def sync_data_bulk():
             "holder_over_1000", "holder_over_400",
             "margin_purchase_balance", "short_sale_balance",
             "margin_purchase_change_20d", "short_sale_change_20d",
-            "vol_20d", "holder_growth_weeks", "inst_consec_days"
+            "vol_20d", "holder_growth_weeks", "inst_consec_days",
+            # 新增：固定視窗持股淨增幅欄位
+            "holder_2w_change", "holder_3w_change", "holder_4w_change", "holder_8w_change"
         ]
         
         # 補足缺失欄位
