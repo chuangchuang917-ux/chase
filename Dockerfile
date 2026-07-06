@@ -10,9 +10,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Expose ports for desktop and mobile apps
-EXPOSE 8501 8502
+# Expose port (Cloud Run standard is 8080)
+EXPOSE 8080
 
-# Start both Streamlit apps
-CMD streamlit run app.py --server.port 8501 & \
-    streamlit run app_mobile.py --server.port 8502
+# Start adaptive Streamlit app binding to all interfaces and respecting dynamic $PORT
+CMD ["sh", "-c", "streamlit run app.py --server.port ${PORT:-8080} --server.address 0.0.0.0"]
