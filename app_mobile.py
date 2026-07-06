@@ -608,21 +608,23 @@ with st.form(key="mobile_filter_form"):
     }
     min_trade_val = trade_val_mapping[trade_val_label]
     
-    # 3. 千張大戶買進週數
-    weeks_label = st.selectbox(
-        "👥 千張大戶連續買進週數",
-        options=["不限制", "連續 2 週", "連續 3 週", "連續 4 週", "連續 8 週"],
-        index=0
-    )
-    weeks_mapping = {"不限制": 0, "連續 2 週": 2, "連續 3 週": 3, "連續 4 週": 4, "連續 8 週": 8}
-    weekly_trend_weeks = weeks_mapping[weeks_label]
-    
-    # 3.5. 大戶累積買超門檻
-    growth_pct_label = st.selectbox(
-        "📈 大戶累積增幅門檻 (連續買進週數內)",
-        options=["不限制", "高於 3%", "高於 5%", "高於 8%"],
-        index=0
-    )
+    # 3. 千張大戶持股增幅篩選（固定視窗）
+    col_win, col_pct = st.columns(2)
+    with col_win:
+        window_label = st.selectbox(
+            "👥 觀察視窗",
+            options=["不限制", "2 週", "3 週", "4 週", "8 週"],
+            index=0
+        )
+    with col_pct:
+        growth_pct_label = st.selectbox(
+            "📈 增幅門檻",
+            options=["不限制", "高於 3%", "高於 5%", "高於 8%"],
+            index=0
+        )
+    window_col_map = {"不限制": None, "2 週": "holder_2w_change", "3 週": "holder_3w_change",
+                     "4 週": "holder_4w_change", "8 週": "holder_8w_change"}
+    selected_window_col = window_col_map[window_label]
     growth_pct_mapping = {"不限制": 0.0, "高於 3%": 3.0, "高於 5%": 5.0, "高於 8%": 8.0}
     min_growth_pct = growth_pct_mapping[growth_pct_label]
     
@@ -670,7 +672,7 @@ if force_recalc:
     with st.spinner("🔍 正在為您篩選優質股票..."):
         df_strategy = cached_run_chip_strategy(
             target_date=selected_date_str,
-            weekly_trend_weeks=weekly_trend_weeks,
+            weekly_trend_weeks=0,
             min_trade_value=min_trade_val
         )
         st.session_state["_df_mobile_cache"] = df_strategy
@@ -684,13 +686,13 @@ if not df_strategy.empty:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_20d"] >= min_inst_ratio_20d]
     if min_inst_ratio_60d > 0:
         df_strategy = df_strategy[df_strategy["ratio_foreign_trust_60d"] >= min_inst_ratio_60d]
-    # 大戸持股增幅篩選：觀察視窗 × 增幅門殾
-    if selected_window_col and min_growth_pct > 0.0:
+    # 大戶持股增幅篩選：觀察視窗 × 增幅門檻
+    if selected_window_col is not None:
         if selected_window_col in df_strategy.columns:
-            df_strategy = df_strategy[df_strategy[selected_window_col] >= min_growth_pct]
-    elif selected_window_col and min_growth_pct == 0.0:
-        if selected_window_col in df_strategy.columns:
-            df_strategy = df_strategy[df_strategy[selected_window_col] > 0]
+            if min_growth_pct > 0.0:
+                df_strategy = df_strategy[df_strategy[selected_window_col] >= min_growth_pct]
+            else:
+                df_strategy = df_strategy[df_strategy[selected_window_col] > 0]
         
     # 搜尋與個股診斷過濾
     if search_stock_q.strip():
