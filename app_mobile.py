@@ -744,6 +744,8 @@ if not df_strategy.empty:
             consec_text_1000 = consec_dict_1000.get(stock_id, "持平")
             consec_text_400 = consec_dict_400.get(stock_id, "持平")
             growth_pct = row.get("holder_growth_pct", 0.0)
+            # 防禦：增幅超過 5% 代表基準值為 0（集保未完結週資料），顯示 N/A
+            growth_pct_text = "N/A" if abs(growth_pct) > 5.0 else f"{growth_pct:+.2f}%"
             
             # 法人連續買賣超天數
             consec_days = 0
@@ -812,7 +814,7 @@ if not df_strategy.empty:
                         </div>
                         <div style="display:flex; justify-content:space-between; font-size: 1.15rem; color: #ff9800; margin-top: 4px;">
                             <span>👉 千張連買：<span class="value-key">{consec_text_1000}</span></span>
-                            <span>累積增幅：<span class="value-key">{growth_pct:+.2f}%</span></span>
+                            <span>累積增幅：<span class="value-key">{growth_pct_text}</span></span>
                         </div>
                         <div style="font-size: 1.15rem; color: #ff9800; margin-top: 4px;">
                             👉 400張週變動：<span class="value-key">{consec_text_400}</span>

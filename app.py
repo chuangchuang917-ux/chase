@@ -1276,7 +1276,11 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                         else:
                             break
                     pct_change_1000 = v_1000[0] - v_1000[consec_1000]
-                    consec_1000_delta = f"+{consec_1000} 週 (+{pct_change_1000:.2f}%)"
+                    # 防禦：增幅超過 5% 代表基準值為 0（未完結週資料），顯示 N/A
+                    if pct_change_1000 > 5.0:
+                        consec_1000_delta = f"+{consec_1000} 週 (N/A)"
+                    else:
+                        consec_1000_delta = f"+{consec_1000} 週 (+{pct_change_1000:.2f}%)"
                 elif diff_1000 < -0.00001:
                     for i in range(len(v_1000) - 1):
                         if v_1000[i] < v_1000[i+1]:
@@ -1298,7 +1302,11 @@ if selected_stock_str and selected_stock_str != "請先執行爬蟲匯入資料"
                         else:
                             break
                     pct_change_400 = v_400[0] - v_400[consec_400]
-                    consec_400_delta = f"+{consec_400} 週 (+{pct_change_400:.2f}%)"
+                    # 防禦：增幅超過 5% 代表基準值為 0（未完結週資料），顯示 N/A
+                    if pct_change_400 > 5.0:
+                        consec_400_delta = f"+{consec_400} 週 (N/A)"
+                    else:
+                        consec_400_delta = f"+{consec_400} 週 (+{pct_change_400:.2f}%)"
                 elif diff_400 < -0.00001:
                     for i in range(len(v_400) - 1):
                         if v_400[i] < v_400[i+1]:
