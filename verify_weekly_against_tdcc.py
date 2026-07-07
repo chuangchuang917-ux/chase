@@ -20,14 +20,14 @@ def main():
     print("============================================================")
     
     r = requests.get(url_tdcc, headers=HEADERS, verify=False, timeout=30)
-    if r.status_code != 200 or len(r.text) < 10000:
-        print(f"[ERROR] 無法取得 TDCC CSV！Status: {r.status_code}, Length: {len(r.text) if r.text else 0}")
+    if r.status_code != 200 or len(r.content) < 10000:
+        print(f"[ERROR] 無法取得 TDCC CSV！Status: {r.status_code}, Length: {len(r.content) if r.content else 0}")
         return
         
     print("  ✅ 成功下載 TDCC 集保 CSV。")
     
     # 解析 CSV
-    df = pd.read_csv(io.StringIO(r.text))
+    df = pd.read_csv(io.BytesIO(r.content), encoding='utf-8-sig')
     df.columns = [c.strip() for c in df.columns]
     df["證券代號"] = df["證券代號"].astype(str).str.strip()
     df["持股分級"] = df["持股分級"].astype(int)
