@@ -822,8 +822,8 @@ def fetch_and_save_weekly_data(start_date, end_date):
             
             headers = {"User-Agent": "Mozilla/5.0"}
             r = requests.get("https://smart.tdcc.com.tw/opendata/getOD.ashx?id=1-5", headers=headers, verify=False, timeout=25)
-            if r.status_code == 200 and len(r.text) > 10000:
-                df = pd.read_csv(io.StringIO(r.text))
+            if r.status_code == 200 and len(r.content) > 10000:
+                df = pd.read_csv(io.BytesIO(r.content), encoding='utf-8-sig')
                 df.columns = [c.strip() for c in df.columns]
                 df["證券代號"] = df["證券代號"].astype(str).str.strip()
                 df["持股分級"] = df["持股分級"].astype(int)

@@ -137,24 +137,34 @@ def main():
             df["holder_over_1000"]   = 0.0
             df["holder_over_400"]    = 0.0
             df["holder_growth_weeks"] = 0
+            for w in [2, 3, 4, 8]:
+                df[f"holder_{w}w_change"] = 0.0
         else:
             df_w = df_w.sort_values(["stock_id", "date"])
             df_w["increased"]    = df_w.groupby("stock_id")["holder_over_1000"].diff() > 0
             df_w["growth_weeks"] = df_w.groupby("stock_id")["increased"].transform(calculate_consecutive_growth)
+
+            # 計算各固定視窗的持股淨增幅 (diff(N) = 本週 - N週前)
+            for w in [2, 3, 4, 8]:
+                df_w[f"holder_{w}w_change"] = df_w.groupby("stock_id")["holder_over_1000"].diff(w)
 
             df["dt"]   = pd.to_datetime(df["date"])
             df_w["dt"] = pd.to_datetime(df_w["date"])
             df  = df.sort_values("dt")
             df_w = df_w.sort_values("dt")
 
+            weekly_merge_cols = ["dt", "stock_id", "holder_over_1000", "holder_over_400", "growth_weeks",
+                                 "holder_2w_change", "holder_3w_change", "holder_4w_change", "holder_8w_change"]
             df = pd.merge_asof(
                 df,
-                df_w[["dt","stock_id","holder_over_1000","holder_over_400","growth_weeks"]],
+                df_w[weekly_merge_cols],
                 on="dt", by="stock_id", direction="backward"
             )
             df["holder_over_1000"]    = df["holder_over_1000"].fillna(0.0)
             df["holder_over_400"]     = df["holder_over_400"].fillna(0.0)
             df["holder_growth_weeks"] = df["growth_weeks"].fillna(0).astype(int)
+            for w in [2, 3, 4, 8]:
+                df[f"holder_{w}w_change"] = df[f"holder_{w}w_change"].fillna(0.0)
 
     finally:
         conn.close()
@@ -174,11 +184,14 @@ def main():
         "vol_20d",          # 先保留以防欄位存在
         "holder_growth_weeks",
         "inst_consec_days",
+        # 新增：固定視窗持股淨增幅欄位
+        "holder_2w_change", "holder_3w_change", "holder_4w_change", "holder_8w_change"
     ]
     # 補足缺失欄位
     for col in out_cols:
         if col not in df.columns:
             df[col] = False if col in ("is_long_lock","is_buy_accelerate") else 0.0
+
 
     df_day = df[df["date"] == TARGET_DATE][out_cols].copy()
     total  = len(df_day)
