@@ -983,7 +983,6 @@ with st.sidebar.form(key="filter_form"):
         "20日法人佔量比 (%)",
         options=["不限制 (0%)", "高於 5%", "高於 10%", "高於 20%", "高於 30%"],
         index=0,
-        horizontal=True,
         label_visibility="collapsed"
     )
     inst_ratio_20_mapping = {
@@ -1000,7 +999,6 @@ with st.sidebar.form(key="filter_form"):
         "60日法人佔量比 (%)",
         options=["不限制 (0%)", "高於 3%", "高於 5%", "高於 10%"],
         index=0,
-        horizontal=True,
         label_visibility="collapsed"
     )
     inst_ratio_60_mapping = {
