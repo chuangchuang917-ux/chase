@@ -954,7 +954,6 @@ with st.sidebar.form(key="filter_form"):
         "大戶觀察視窗",
         options=["不限制", "2 週", "3 週", "4 週", "8 週"],
         index=0,
-        horizontal=True,
         label_visibility="collapsed"
     )
     window_col_map = {"不限制": None, "2 週": "holder_2w_change", "3 週": "holder_3w_change",
@@ -966,7 +965,6 @@ with st.sidebar.form(key="filter_form"):
         "持股增幅門檻 (%)",
         options=["不限制 (0%)", "高於 3%", "高於 5%", "高於 8%"],
         index=0,
-        horizontal=True,
         label_visibility="collapsed"
     )
     growth_pct_mapping = {
