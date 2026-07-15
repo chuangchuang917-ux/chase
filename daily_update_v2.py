@@ -67,18 +67,68 @@ def get_tw_now():
 
 def get_latest_trading_day():
     """
-    取得「上一個交易日」的日期字串 YYYY-MM-DD（基於台灣時間）。
-    若設定了 OVERRIDE_DATE 環境變數，優先使用（供手動觸發 workflow 指定日期）。
-    僅排除週六、週日，不處理特殊假日。
+    取得最新交易日日期字串 YYYY-MM-DD（優先自 TWSE/TPEx OpenAPI 取得真實最新開盤日）。
+    若設定了 OVERRIDE_DATE 環境變數，優先使用。
     """
     override = os.environ.get("OVERRIDE_DATE", "").strip()
     if override:
         print(f"[INFO]  使用手動指定日期：{override}")
         return override
-    tw_today = get_tw_now().date()
-    candidate = tw_today - datetime.timedelta(days=1)
-    while candidate.weekday() >= 5:  # 5=Sat, 6=Sun
+
+    headers = {"User-Agent": "Mozilla/5.0"}
+    
+    # 1. 嘗試從 TPEx OpenAPI 獲取最新交易日 (更新最快且穩定)
+    try:
+        r = requests.get("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes", headers=headers, verify=False, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            dates = []
+            for item in data:
+                raw_date = item.get("Date", "")
+                if len(raw_date) >= 6:
+                    year = int(raw_date[:-4]) + 1911
+                    db_date = f"{year}-{raw_date[-4:-2]}-{raw_date[-2:]}"
+                    dates.append(db_date)
+            if dates:
+                latest_date = max(dates)
+                print(f"[INFO]  從 TPEx OpenAPI 偵測到最新交易日：{latest_date}")
+                return latest_date
+    except Exception as e:
+        print(f"[WARNING] 無法從 TPEx OpenAPI 取得最新交易日: {e}")
+
+    # 2. 嘗試從 TWSE OpenAPI 獲取最新交易日
+    try:
+        r = requests.get("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", headers=headers, verify=False, timeout=10)
+        if r.status_code == 200:
+            data = r.json()
+            dates = []
+            for item in data:
+                raw_date = item.get("Date", "")
+                if len(raw_date) >= 6:
+                    year = int(raw_date[:-4]) + 1911
+                    db_date = f"{year}-{raw_date[-4:-2]}-{raw_date[-2:]}"
+                    dates.append(db_date)
+            if dates:
+                latest_date = max(dates)
+                print(f"[INFO]  從 TWSE OpenAPI 偵測到最新交易日：{latest_date}")
+                return latest_date
+    except Exception as e:
+        print(f"[WARNING] 無法從 TWSE OpenAPI 取得最新交易日: {e}")
+
+    # 3. 備用機制：若 API 均失敗，採用基於時間的 fallback 估算
+    tw_now = get_tw_now()
+    tw_today = tw_now.date()
+    
+    # 若今天已收盤（16:30 之後）且今天是週一至週五，預設為今天，否則為昨天
+    if tw_now.hour >= 16 and tw_today.weekday() < 5:
+        candidate = tw_today
+    else:
+        candidate = tw_today - datetime.timedelta(days=1)
+        
+    while candidate.weekday() >= 5:
         candidate -= datetime.timedelta(days=1)
+        
+    print(f"[INFO]  OpenAPI 查詢失敗，採用時間估算最新交易日：{candidate}")
     return str(candidate)
 
 

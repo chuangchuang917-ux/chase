@@ -257,7 +257,7 @@ def fetch_broker_top15(api, date_str):
         pass
     return pd.DataFrame(columns=["stock_id", "top15_buy_total", "top15_sell_total"])
 
-def fetch_daily_data_from_open_apis(active_stock_ids):
+def fetch_daily_data_from_open_apis(active_stock_ids, target_date=None):
     """
     從 TWSE 與 TPEx OpenAPI/RWD 抓取最新交易日的全市場資料，包括：
     1. 日報價與成交量 (STOCK_DAY_ALL / MI_INDEX, tpex_mainboard_daily_close_quotes)
@@ -309,11 +309,20 @@ def fetch_daily_data_from_open_apis(active_stock_ids):
         
     # 如果能取得 TPEx 交易日，以此作為全市場目標交易日；否則採用當前系統日期
     if tpex_target_date:
-        target_date = tpex_target_date
+        api_date = tpex_target_date
     else:
-        target_date = datetime.now().strftime("%Y-%m-%d")
+        api_date = datetime.now().strftime("%Y-%m-%d")
+        
+    if target_date is None:
+        target_date = api_date
         
     print(f"[INFO] 確定的目標交易日為: {target_date}")
+    
+    # 檢查 API 資料的日期是否與 target_date 一致 (若為歷史查詢)
+    if api_date != target_date:
+        print(f"[WARNING] OpenAPI 最新資料日期為 {api_date}，與要求的目標日期 {target_date} 不符！")
+        print("[WARNING] OpenAPI 不支援歷史資料回溯，放棄抓取以防止資料錯亂。")
+        return pd.DataFrame()
     
     # ------------------
     # A. 抓取上市日報價 (Price & Volume)
@@ -648,7 +657,7 @@ def fetch_and_save_data(start_date, end_date):
             
         headers = {"User-Agent": "Mozilla/5.0"}
             
-        df_day = fetch_daily_data_from_open_apis(target_stocks)
+        df_day = fetch_daily_data_from_open_apis(target_stocks, target_date=start_date)
         if df_day.empty:
             print("[WARNING] 無法從 OpenAPI 獲取最新日報資料。")
             return
