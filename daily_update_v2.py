@@ -287,9 +287,18 @@ def crawl_and_save_daily(target_date):
     finally:
         conn.close()
 
-    if count > 0:
-        print(f"  [SKIP] SQLite 已有 {count} 筆 {target_date} 資料，跳過爬蟲步驟。")
+    MIN_EXPECTED = 1500  # 正常交易日約 1970+ 筆，低於此值視為不完整
+    if count >= MIN_EXPECTED:
+        print(f"  [SKIP] SQLite 已有 {count} 筆 {target_date} 資料（完整），跳過爬蟲步驟。")
     else:
+        if count > 0:
+            print(f"  [WARN] SQLite 已有 {count} 筆 {target_date} 資料，但不足 {MIN_EXPECTED} 筆（不完整），刪除後重新爬取。")
+            conn2 = sqlite3.connect(DB_PATH)
+            try:
+                conn2.execute("DELETE FROM daily_chips WHERE date=?", (target_date,))
+                conn2.commit()
+            finally:
+                conn2.close()
         _crawler_mod.fetch_and_save_data(target_date, target_date)
 
     # 不論是否爬取，都 Upsert 當日資料到 Supabase daily_chips_raw
@@ -391,10 +400,10 @@ def main():
         print(f"[ERROR] 無法取得 {target_date} 的日籌碼資料，流程中止。")
         sys.exit(1)
 
-    # 步驟 3：若今天是週五（或特殊集保更新日），抓週集保資料
-    tw_weekday = get_tw_now().weekday()  # 0=Mon, 4=Fri
-    if tw_weekday == 4:
-        print("[INFO]  今天是週五，執行週集保抓取...")
+    # 步驟 3：若今天是週五、六、日，執行週集保抓取與更新檢查
+    tw_weekday = get_tw_now().weekday()  # 0=Mon, 4=Fri, 5=Sat, 6=Sun
+    if tw_weekday in (4, 5, 6):
+        print("[INFO]  執行週集保抓取與更新檢查...")
         try:
             crawl_and_save_weekly(target_date)
         except Exception as e:
