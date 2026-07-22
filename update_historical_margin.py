@@ -10,17 +10,16 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 DB_PATH = "taiwan_stock.db"
 
-PRIMARY_API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiYWxiZXJ0MDkxNyIsImVtYWlsIjoiYWxiZXJ0MDkxN0BnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowLCJleHAiOjE3ODM0MTcwMjl9.snTeoVkjJqMb7m655PA_lA8yxPgdSE24Sfm0A9n-jxU"
-FALLBACK_API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5nY2h1YW5nOTE3QGdtYWlsLmNvbSIsImVtYWlsIjoiY2h1YW5nY2h1YW5nOTE3QGdtYWlsLmNvbSIsInRva2VuX3ZlcnNpb24iOjIsImV4cCI6MTc4MzQxNzA0M30.IKH0tshNaAX_OAfXnFlzrygANbbGyo_KAs_M2JlO_tg"
-THIRD_API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5na3VuNjlAZ21haWwuY29tIiwiZW1haWwiOiJjaHVhbmdrdW42OUBnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowLCJleHAiOjE3ODM0MTcyMDF9.dmGveEOR8lEXdA2Wibx8DcOYoHrVWBc3X2w0s1RPQSU"
+PRIMARY_API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiYWxiZXJ0MDkxNyIsImVtYWlsIjoiYWxiZXJ0MDkxN0BnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowfQ.NigTcrEmzoH4Ntj3RDzfcRCT2a397hsERMydNZuy05c"
+FALLBACK_API_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY2h1YW5na3VuNjlAZ21haWwuY29tIiwiZW1haWwiOiJjaHVhbmdrdW42OUBnbWFpbC5jb20iLCJ0b2tlbl92ZXJzaW9uIjowfQ.HsULDchhy4vlVfoKipk-JEjDMv34OndMN8M4SVXEp3w"
 
-API_TOKENS = [PRIMARY_API_TOKEN, FALLBACK_API_TOKEN, THIRD_API_TOKEN]
+API_TOKENS = [PRIMARY_API_TOKEN, FALLBACK_API_TOKEN]
 TOKEN_CURSOR = 0
 API_CLIENTS = []
 
 def init_api_clients():
     global API_CLIENTS
-    print("[INFO] 正在初始化 3 組 FinMind API 客戶端...")
+    print("[INFO] 正在初始化 2 組 FinMind API 客戶端...")
     for idx, token in enumerate(API_TOKENS):
         for attempt in range(4):
             try:
