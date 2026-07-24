@@ -1,9 +1,62 @@
 # Chase App — 工作交接文件
 
-> 上次工作時間：2026-07-07 20:15（台灣時間）
-> 狀態：所有法人機構最低門檻的 radio 按鈕已改為垂直排列並重新部署至 Cloud Run
+> 上次工作時間：2026-07-24 21:05（台灣時間）
+> 狀態：修復 GitHub Actions 每日更新 Race Condition（OpenAPI 日期不符導致流程中止）
 
 ---
+
+## 二、本次工作摘要（0724 session）
+
+### 問題描述
+
+GitHub Actions workflow「Rebuild SQLite from Supabase → Crawl → Sync」在執行時報錯：
+
+```
+[WARNING] OpenAPI 最新資料日期為 2026-07-24，與要求的目標日期 2026-07-23 不符！
+[WARNING] OpenAPI 不支援歷史資料回溯，放棄抓取以防止資料錯亂。
+[ERROR] 無法取得 2026-07-23 的日籌碼資料，流程中止。
+Error: Process completed with exit code 1
+```
+
+### 根本原因（Race Condition）
+
+1. Workflow 在台灣時間 18:30 啟動
+2. `get_latest_trading_day()` 呼叫 TPEx OpenAPI，此時 API 返回 `2026-07-23`（昨天）→ `target_date = 2026-07-23`
+3. 幾秒後執行 `fetch_daily_data_from_open_apis(target_stocks, target_date="2026-07-23")`
+4. 函數內部再次呼叫 TPEx OpenAPI，此時 API **剛好更新**到 `2026-07-24`（今天）
+5. `api_date (2026-07-24) != target_date (2026-07-23)` → 程式中止，返回空結果
+
+這是一個 Race Condition：前後兩次呼叫 OpenAPI 的間隔時間（數十秒）內，API 從昨天資料更新到今天資料。
+
+### 修正方式（commit: 3c86872）
+
+**檔案：`crawler.py`**
+
+修改 `fetch_daily_data_from_open_apis()` 中的日期驗證邏輯：
+
+**舊邏輯（錯誤）**：
+```python
+if api_date != target_date:
+    print("[WARNING] OpenAPI 最新資料日期為 {api_date}，不符！")
+    return pd.DataFrame()  # 直接放棄！
+```
+
+**新邏輯（正確）**：
+```python
+if api_date != target_date:
+    # 清空 OpenAPI 的 tpex_price（日期不對），改全部走 RWD 指定日期查詢
+    df_tpex_price = pd.DataFrame()
+    # 繼續執行，由後面的 TWSE RWD + TPEx RWD fallback 查詢指定日期
+```
+
+同時加入了 **TPEx RWD fallback**：當 `df_tpex_price` 為空時（因 API 日期不符被清空、或 API 失敗），改用 `tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430` RWD 接口查詢指定 `target_date` 的上櫃股收盤資料。
+
+**關鍵理解**：
+- TWSE/TPEx **OpenAPI**：只提供最新一天的資料，不能查歷史
+- TWSE/TPEx **RWD** (afterTrading)：支援查詢任意歷史日期 ✓
+
+---
+
 
 ## 一、本次工作摘要（0706 session）
 
