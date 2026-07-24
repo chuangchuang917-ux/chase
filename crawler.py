@@ -318,11 +318,13 @@ def fetch_daily_data_from_open_apis(active_stock_ids, target_date=None):
         
     print(f"[INFO] 確定的目標交易日為: {target_date}")
     
-    # 檢查 API 資料的日期是否與 target_date 一致 (若為歷史查詢)
+    # 如果 OpenAPI 已更新到比 target_date 更新的資料（Race Condition：
+    # get_latest_trading_day() 取得的是昨天，但爬蟲執行時 API 已更新到今天），
+    # 則丟棄 OpenAPI 的 tpex_price（因為日期不對），改全部走 RWD 指定日期查詢。
+    # TWSE/TPEx RWD 接口支援歷史日期查詢，可正確取得 target_date 資料。
     if api_date != target_date:
-        print(f"[WARNING] OpenAPI 最新資料日期為 {api_date}，與要求的目標日期 {target_date} 不符！")
-        print("[WARNING] OpenAPI 不支援歷史資料回溯，放棄抓取以防止資料錯亂。")
-        return pd.DataFrame()
+        print(f"[INFO] OpenAPI 已更新至 {api_date}，目標日 {target_date} 改全部走 RWD 指定日期查詢。")
+        df_tpex_price = pd.DataFrame()  # 清空 OpenAPI 的 tpex price（日期不符）
     
     # ------------------
     # A. 抓取上市日報價 (Price & Volume)
@@ -397,6 +399,43 @@ def fetch_daily_data_from_open_apis(active_stock_ids, target_date=None):
         except Exception as e:
             print(f"[WARNING] 抓取上市日報價備用失敗: {e}")
             
+    # 如果 df_tpex_price 仍為空（因 API 日期不符被清空，或 API 失敗），
+    # 改用 TPEx RWD 接口查詢指定 target_date 的上櫃股收盤資料
+    if df_tpex_price.empty:
+        try:
+            def to_roc_date_inner(date_str):
+                parts = date_str.split('-')
+                roc_year = int(parts[0]) - 1911
+                return f"{roc_year}/{parts[1]}/{parts[2]}"
+            roc_date = to_roc_date_inner(target_date)
+            url_tpex_price = f"https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&d={roc_date}&o=json&se=EW"
+            print(f"[INFO] 正在從 TPEx RWD 獲取 {target_date} ({roc_date}) 上櫃日報價...")
+            r = requests.get(url_tpex_price, headers=headers, verify=False, timeout=20)
+            if r.status_code == 200:
+                j = r.json()
+                if j.get('tables') and len(j['tables']) > 0:
+                    table_data = j['tables'][0].get('data', [])
+                    rows = []
+                    for item in table_data:
+                        code = item[0].strip()
+                        if len(code) == 4:
+                            try:
+                                close_val = float(item[2].replace(",", ""))
+                                vol_val = float(item[7].replace(",", "")) / 1000.0
+                            except (ValueError, TypeError, IndexError):
+                                close_val = 0.0
+                                vol_val = 0.0
+                            rows.append({
+                                "date": target_date,
+                                "stock_id": code,
+                                "close": close_val,
+                                "volume": vol_val
+                            })
+                    df_tpex_price = pd.DataFrame(rows)
+                    print(f"[SUCCESS] 成功從 TPEx RWD 取得 {len(df_tpex_price)} 筆上櫃日報價。")
+        except Exception as e:
+            print(f"[WARNING] 透過 TPEx RWD 獲取日報價失敗: {e}")
+
     df_price = pd.concat([df_twse_price, df_tpex_price], ignore_index=True)
     if df_price.empty:
         print("[ERROR] 無法取得任何日報價資料。")
